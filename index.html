@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Chama — Mockup do produto</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#14213D;
+    --ink-2:#1D2E52;
+    --amber:#FF9F1C;
+    --amber-dark:#C97400;
+    --mint:#0F9E8D;
+    --mint-bg:#E3F5F2;
+    --bg:#EEF1F4;
+    --paper:#FFFFFF;
+    --line:#E2E6EA;
+    --text:#171A21;
+    --text-secondary:#5B6472;
+    --text-muted:#9AA2AD;
+    --danger:#E24B4A;
+    --radius-card:18px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    font-family:'Inter',sans-serif;
+    color:var(--text);
+    padding:32px 16px 64px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* ---------- top bar ---------- */
+  .top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:16px;
+    margin-bottom:28px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand .mark{
+    width:34px;height:34px;border-radius:9px;background:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    position:relative;overflow:hidden;
+  }
+  .brand .mark::after{
+    content:"";position:absolute;width:20px;height:2px;background:var(--amber);
+    top:50%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);
+    box-shadow:0 6px 0 var(--amber);
+  }
+  .brand h1{font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;margin:0;letter-spacing:-0.01em;}
+  .brand span{display:block;font-size:11.5px;color:var(--text-secondary);margin-top:1px;}
+
+  .tabs{
+    display:flex;gap:4px;background:var(--paper);border:1px solid var(--line);
+    border-radius:12px;padding:4px;
+  }
+  .tab{
+    border:none;background:transparent;padding:9px 18px;border-radius:9px;
+    font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;color:var(--text-secondary);
+    cursor:pointer;transition:all .15s ease;
+  }
+  .tab.active{background:var(--ink);color:#fff;}
+
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .section-label{
+    font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--text-muted);margin:0 0 14px 2px;
+  }
+
+  /* ---------- phone frame ---------- */
+  .phones-row{display:flex;gap:28px;flex-wrap:wrap;margin-bottom:44px;}
+  .phone-block{flex:0 0 auto;}
+  .phone-block h3{
+    font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;
+    margin:0 0 12px 4px;color:var(--ink);
+  }
+  .phone{
+    width:290px;height:596px;background:#000;border-radius:38px;padding:10px;
+    box-shadow:0 24px 48px -12px rgba(20,33,61,.28), 0 0 0 1px rgba(20,33,61,.06);
+  }
+  .screen{
+    width:100%;height:100%;background:var(--paper);border-radius:28px;overflow:hidden;
+    position:relative;display:flex;flex-direction:column;font-family:'Inter',sans-serif;
+  }
+  .notch{
+    position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:120px;height:22px;background:#000;border-radius:0 0 14px 14px;z-index:5;
+  }
+  .statusbar{
+    display:flex;justify-content:space-between;padding:16px 22px 4px;
+    font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;color:var(--text);
+  }
+
+  /* ---------- passenger screen 1 ---------- */
+  .p-header{padding:8px 20px 14px;display:flex;justify-content:space-between;align-items:flex-start;}
+  .p-header .greet p{margin:0;font-size:11.5px;color:var(--text-secondary);}
+  .p-header .greet h4{margin:2px 0 0;font-size:17px;font-family:'Space Grotesk',sans-serif;font-weight:600;}
+  .bell{
+    width:34px;height:34px;border-radius:10px;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;font-size:15px;
+  }
+  .map{
+    flex:1;position:relative;background:
+      repeating-linear-gradient(0deg, #E7ECEF 0px, #E7ECEF 1px, transparent 1px, transparent 34px),
+      repeating-linear-gradient(90deg, #E7ECEF 0px, #E7ECEF 1px, transparent 1px, transparent 34px),
+      #F3F6F8;
+    overflow:hidden;
+  }
+  .pin{
+    position:absolute;width:14px;height:14px;background:var(--ink);border-radius:50% 50% 50% 0;
+    transform:rotate(-45deg);top:44%;left:47%;box-shadow:0 3px 6px rgba(20,33,61,.35);
+  }
+  .pin::after{content:"";position:absolute;width:6px;height:6px;background:#fff;border-radius:50%;top:4px;left:4px;}
+  .car-dot{
+    position:absolute;width:26px;height:26px;background:var(--amber);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:13px;
+    box-shadow:0 4px 10px rgba(255,159,28,.4);
+  }
+  .route-dash{
+    position:absolute;border-top:3px dashed var(--amber-dark);opacity:.55;
+  }
+  .p-sheet{
+    background:var(--paper);border-radius:22px 22px 0 0;margin-top:-20px;padding:18px 18px 20px;
+    box-shadow:0 -8px 24px rgba(20,33,61,.08);z-index:2;
+  }
+  .search-box{
+    display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:12px;
+    padding:12px 14px;font-size:13.5px;color:var(--text-secondary);margin-bottom:12px;
+  }
+  .quick-dest{display:flex;gap:10px;margin-bottom:16px;}
+  .qd-item{
+    flex:1;background:var(--bg);border-radius:12px;padding:10px 8px;text-align:center;
+  }
+  .qd-item .ic{font-size:15px;margin-bottom:4px;}
+  .qd-item span{display:block;font-size:11px;color:var(--text-secondary);font-weight:500;}
+  .btn-primary{
+    width:100%;background:var(--amber);color:var(--ink);border:none;border-radius:13px;
+    padding:14px;font-family:'Space Grotesk',sans-serif;font-size:14.5px;font-weight:600;cursor:pointer;
+  }
+  .bottom-nav{
+    display:flex;justify-content:space-around;padding:12px 8px 16px;border-top:1px solid var(--line);
+    background:var(--paper);
+  }
+  .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .nav-item .ic{font-size:15px;}
+  .nav-item span{font-size:9.5px;color:var(--text-muted);font-weight:500;}
+  .nav-item.on span, .nav-item.on .ic{color:var(--ink);}
+
+  /* ---------- passenger screen 2 : ride in progress ---------- */
+  .eta-banner{
+    position:absolute;top:16px;left:16px;right:16px;background:var(--ink);color:#fff;
+    border-radius:13px;padding:10px 14px;font-size:12.5px;font-weight:500;z-index:3;
+    display:flex;align-items:center;gap:8px;
+  }
+  .eta-banner b{color:var(--amber);font-family:'IBM Plex Mono',monospace;}
+  .driver-card{
+    background:var(--paper);border-radius:22px 22px 0 0;margin-top:-24px;padding:18px;
+    box-shadow:0 -8px 24px rgba(20,33,61,.1);z-index:2;
+  }
+  .driver-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .avatar{
+    width:46px;height:46px;border-radius:50%;background:var(--ink);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;
+    font-family:'Space Grotesk',sans-serif;flex-shrink:0;
+  }
+  .driver-info h4{margin:0;font-size:14.5px;font-weight:600;font-family:'Space Grotesk',sans-serif;}
+  .driver-info p{margin:2px 0 0;font-size:11.5px;color:var(--text-secondary);}
+  .star{color:var(--amber-dark);font-weight:600;}
+  .icon-btns{display:flex;gap:8px;margin-left:auto;}
+  .icon-btn{
+    width:38px;height:38px;border-radius:10px;background:var(--bg);
+    display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;
+  }
+  .fare-row{
+    display:flex;justify-content:space-between;align-items:center;padding:12px 0;
+    border-top:1px solid var(--line);
+  }
+  .fare-row span:first-child{font-size:12px;color:var(--text-secondary);}
+  .fare-row span:last-child{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;}
+  .cancel-link{
+    display:block;text-align:center;margin-top:10px;font-size:12px;color:var(--danger);font-weight:500;
+  }
+
+  /* ---------- driver screen 1: incoming ride ---------- */
+  .offer-wrap{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:20px;background:linear-gradient(180deg,#1B2A4A 0%,#14213D 60%);}
+  .offer-tag{color:var(--amber);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;}
+  .offer-card{background:var(--paper);border-radius:20px;padding:20px;box-shadow:0 20px 40px rgba(0,0,0,.3);}
+  .timer-track{height:6px;background:var(--bg);border-radius:6px;overflow:hidden;margin-bottom:16px;}
+  .timer-fill{height:100%;width:62%;background:var(--amber);border-radius:6px;}
+  .offer-pass{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .offer-pass h4{margin:0;font-size:15px;font-family:'Space Grotesk',sans-serif;font-weight:600;}
+  .offer-pass p{margin:2px 0 0;font-size:11.5px;color:var(--text-secondary);}
+  .offer-detail{
+    display:flex;justify-content:space-between;padding:9px 0;font-size:12.5px;
+    border-top:1px dashed var(--line);color:var(--text-secondary);
+  }
+  .offer-detail b{color:var(--text);font-weight:600;}
+  .offer-actions{display:flex;gap:10px;margin-top:16px;}
+  .btn-decline{
+    flex:1;background:var(--paper);border:1.5px solid var(--line);color:var(--text-secondary);
+    border-radius:13px;padding:13px;font-weight:600;font-size:13.5px;font-family:'Inter',sans-serif;
+  }
+  .btn-accept{flex:1.4;}
+
+  /* ---------- driver screen 2: panel ---------- */
+  .d-panel-header{padding:18px 20px 10px;}
+  .status-toggle{
+    display:flex;align-items:center;justify-content:space-between;background:var(--ink);
+    border-radius:16px;padding:14px 16px;color:#fff;margin-bottom:14px;
+  }
+  .status-toggle .lbl{display:flex;align-items:center;gap:8px;}
+  .status-dot{width:9px;height:9px;border-radius:50%;background:var(--mint);}
+  .status-toggle span{font-size:13px;font-weight:600;}
+  .switch{width:40px;height:23px;background:var(--mint);border-radius:20px;position:relative;}
+  .switch::after{content:"";position:absolute;width:17px;height:17px;background:#fff;border-radius:50%;top:3px;right:3px;}
+  .earn-grid{display:flex;gap:10px;margin-bottom:14px;}
+  .earn-card{flex:1;background:var(--bg);border-radius:14px;padding:12px 14px;}
+  .earn-card p{margin:0;font-size:10.5px;color:var(--text-secondary);font-weight:500;}
+  .earn-card h4{margin:4px 0 0;font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;}
+  .sub-badge{
+    display:flex;align-items:center;gap:8px;background:var(--mint-bg);color:#0B6E62;
+    border-radius:12px;padding:10px 14px;font-size:12px;font-weight:600;margin-bottom:16px;
+  }
+  .mini-map-label{padding:0 20px;font-size:11.5px;color:var(--text-secondary);font-weight:600;margin-bottom:8px;}
+  .mini-map{margin:0 20px;flex:1;border-radius:16px;overflow:hidden;position:relative;background:#F3F6F8;
+    background-image:repeating-linear-gradient(0deg,#E7ECEF 0px,#E7ECEF 1px,transparent 1px,transparent 26px),
+      repeating-linear-gradient(90deg,#E7ECEF 0px,#E7ECEF 1px,transparent 1px,transparent 26px);}
+
+  /* ---------- admin dashboard ---------- */
+  .browser-frame{
+    background:var(--paper);border-radius:16px;box-shadow:0 24px 48px -12px rgba(20,33,61,.2), 0 0 0 1px rgba(20,33,61,.06);
+    overflow:hidden;
+  }
+  .browser-bar{
+    background:var(--bg);padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);
+  }
+  .browser-bar .dot{width:9px;height:9px;border-radius:50%;background:#D8DCE1;}
+  .browser-bar .url{
+    margin-left:10px;background:var(--paper);border:1px solid var(--line);border-radius:7px;
+    padding:5px 12px;font-size:11px;color:var(--text-muted);font-family:'IBM Plex Mono',monospace;
+  }
+  .admin-body{display:flex;min-height:560px;}
+  .admin-sidebar{
+    width:198px;background:var(--ink);color:#fff;padding:20px 14px;flex-shrink:0;
+  }
+  .admin-sidebar .brand2{display:flex;align-items:center;gap:8px;margin-bottom:26px;padding:0 8px;}
+  .admin-sidebar .brand2 .mark{width:26px;height:26px;border-radius:7px;background:var(--amber);flex-shrink:0;}
+  .admin-sidebar .brand2 span{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14.5px;}
+  .nav-link{
+    display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;
+    font-size:13px;font-weight:500;color:#B9C2D6;margin-bottom:2px;
+  }
+  .nav-link .ic{font-size:14px;width:16px;text-align:center;}
+  .nav-link.on{background:rgba(255,159,28,.14);color:#fff;}
+  .nav-link.on .ic{color:var(--amber);}
+
+  .admin-main{flex:1;padding:22px 26px;background:var(--bg);}
+  .admin-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+  .admin-topbar h2{margin:0;font-family:'Space Grotesk',sans-serif;font-size:19px;font-weight:600;}
+  .admin-topbar p{margin:2px 0 0;font-size:12px;color:var(--text-secondary);}
+  .admin-user{display:flex;align-items:center;gap:10px;}
+  .admin-user .avatar{width:32px;height:32px;font-size:11.5px;}
+
+  .metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+  .metric-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:15px 16px;}
+  .metric-card p{margin:0;font-size:11.5px;color:var(--text-secondary);font-weight:500;}
+  .metric-card h3{margin:6px 0 0;font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:600;}
+  .metric-card .delta{font-size:11px;color:var(--mint);font-weight:600;margin-top:4px;}
+
+  .admin-grid-2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;}
+  .panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;}
+  .panel h4{margin:0 0 14px;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:600;}
+  .live-map{height:250px;border-radius:10px;position:relative;overflow:hidden;background:#F3F6F8;
+    background-image:repeating-linear-gradient(0deg,#E7ECEF 0px,#E7ECEF 1px,transparent 1px,transparent 30px),
+      repeating-linear-gradient(90deg,#E7ECEF 0px,#E7ECEF 1px,transparent 1px,transparent 30px);}
+  .car-mini{position:absolute;width:20px;height:20px;background:var(--amber);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:10px;box-shadow:0 3px 6px rgba(255,159,28,.4);}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;color:var(--text-muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;padding:0 0 10px;}
+  td{padding:11px 0;border-top:1px solid var(--line);}
+  .badge{padding:3px 10px;border-radius:20px;font-size:10.5px;font-weight:600;}
+  .badge.progress{background:#FFF1DC;color:var(--amber-dark);}
+  .badge.searching{background:#E6F1FB;color:#185FA5;}
+  .badge.done{background:var(--mint-bg);color:#0B6E62;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  @media (max-width:1180px){
+    .metric-grid{grid-template-columns:repeat(2,1fr);}
+    .admin-grid-2{grid-template-columns:1fr;}
+  }
+  @media (max-width:760px){
+    .admin-sidebar{display:none;}
+    .phones-row{justify-content:center;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <h1>Chama</h1>
+        <span>Mockup navegável · nome e marca de exemplo, prontos para substituir</span>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="passageiro">Passageiro</button>
+      <button class="tab" data-tab="motorista">Motorista</button>
+      <button class="tab" data-tab="admin">Painel admin</button>
+    </div>
+  </div>
+
+  <!-- PASSAGEIRO -->
+  <div class="view active" id="view-passageiro">
+    <p class="section-label">App do passageiro</p>
+    <div class="phones-row">
+      <div class="phone-block">
+        <h3>Início · pedir corrida</h3>
+        <div class="phone"><div class="screen">
+          <div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>••• 5G 100%</span></div>
+          <div class="p-header">
+            <div class="greet"><p>Boa tarde</p><h4>Olá, Marina</h4></div>
+            <div class="bell">🔔</div>
+          </div>
+          <div class="map">
+            <div class="pin"></div>
+            <div class="car-dot" style="top:22%;left:20%;">🚗</div>
+            <div class="car-dot" style="top:68%;left:74%;">🚗</div>
+            <div class="car-dot" style="top:14%;left:66%;">🚗</div>
+          </div>
+          <div class="p-sheet">
+            <div class="search-box">🔍 Para onde vamos?</div>
+            <div class="quick-dest">
+              <div class="qd-item"><div class="ic">🏠</div><span>Casa</span></div>
+              <div class="qd-item"><div class="ic">💼</div><span>Trabalho</span></div>
+              <div class="qd-item"><div class="ic">➕</div><span>Salvar</span></div>
+            </div>
+            <button class="btn-primary">Pedir corrida</button>
+          </div>
+          <div class="bottom-nav">
+            <div class="nav-item on"><div class="ic">📍</div><span>Início</span></div>
+            <div class="nav-item"><div class="ic">🧾</div><span>Corridas</span></div>
+            <div class="nav-item"><div class="ic">💳</div><span>Carteira</span></div>
+            <div class="nav-item"><div class="ic">👤</div><span>Perfil</span></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="phone-block">
+        <h3>Corrida em andamento</h3>
+        <div class="phone"><div class="screen">
+          <div class="notch"></div>
+          <div class="map" style="flex:1.3;">
+            <div class="eta-banner">🚗 Motorista a caminho · chega em <b>4 min</b></div>
+            <div class="route-dash" style="width:120px;top:40%;left:18%;transform:rotate(18deg);"></div>
+            <div class="pin" style="top:38%;left:60%;"></div>
+            <div class="car-dot" style="top:56%;left:16%;">🚗</div>
+          </div>
+          <div class="driver-card">
+            <div class="driver-row">
+              <div class="avatar">RA</div>
+              <div class="driver-info">
+                <h4>Roberto Alves</h4>
+                <p><span class="star">★ 4.9</span> · Chevrolet Onix Prata · ABC-1G34</p>
+              </div>
+              <div class="icon-btns">
+                <div class="icon-btn">📞</div>
+                <div class="icon-btn">💬</div>
+              </div>
+            </div>
+            <div class="fare-row"><span>Estimativa da corrida</span><span>R$ 18,50</span></div>
+            <a class="cancel-link">Cancelar corrida</a>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOTORISTA -->
+  <div class="view" id="view-motorista">
+    <p class="section-label">App do motorista parceiro</p>
+    <div class="phones-row">
+      <div class="phone-block">
+        <h3>Nova corrida (oferta)</h3>
+        <div class="phone"><div class="screen">
+          <div class="notch"></div>
+          <div class="offer-wrap">
+            <div class="offer-tag">Nova solicitação</div>
+            <div class="offer-card">
+              <div class="timer-track"><div class="timer-fill"></div></div>
+              <div class="offer-pass">
+                <div class="avatar" style="background:var(--amber);color:var(--ink);">MC</div>
+                <div><h4>Marina Costa</h4><p>★ 4.8 · a 800 m de você</p></div>
+              </div>
+              <div class="offer-detail"><span>Embarque</span><b>3 min</b></div>
+              <div class="offer-detail"><span>Destino</span><b>Centro, 4,2 km</b></div>
+              <div class="offer-detail"><span>Valor estimado</span><b>R$ 18,50</b></div>
+              <div class="offer-actions">
+                <button class="btn-decline">Recusar</button>
+                <button class="btn-primary btn-accept">Aceitar</button>
+              </div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="phone-block">
+        <h3>Painel do motorista</h3>
+        <div class="phone"><div class="screen">
+          <div class="notch"></div>
+          <div class="statusbar"><span>9:41</span><span>••• 5G 100%</span></div>
+          <div class="d-panel-header">
+            <div class="status-toggle">
+              <div class="lbl"><div class="status-dot"></div><span>Você está online</span></div>
+              <div class="switch"></div>
+            </div>
+            <div class="earn-grid">
+              <div class="earn-card"><p>Ganhos hoje</p><h4>R$ 142,00</h4></div>
+              <div class="earn-card"><p>Corridas hoje</p><h4>8</h4></div>
+            </div>
+            <div class="sub-badge">✅ Mensalidade em dia · próxima cobrança em 18 dias</div>
+          </div>
+          <div class="mini-map-label">Corridas disponíveis na região</div>
+          <div class="mini-map">
+            <div class="pin" style="top:40%;left:44%;"></div>
+            <div class="car-dot" style="top:20%;left:22%;">🚗</div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="view" id="view-admin">
+    <p class="section-label">Painel administrativo (web)</p>
+    <div class="browser-frame">
+      <div class="browser-bar">
+        <div class="dot" style="background:#F0997B;"></div>
+        <div class="dot" style="background:#EF9F27;"></div>
+        <div class="dot" style="background:#639922;"></div>
+        <div class="url">admin.chama.app/dashboard</div>
+      </div>
+      <div class="admin-body">
+        <div class="admin-sidebar">
+          <div class="brand2"><div class="mark"></div><span>Chama Admin</span></div>
+          <div class="nav-link on"><span class="ic">▣</span> Dashboard</div>
+          <div class="nav-link"><span class="ic">🚗</span> Motoristas</div>
+          <div class="nav-link"><span class="ic">🧾</span> Corridas</div>
+          <div class="nav-link"><span class="ic">💰</span> Financeiro</div>
+          <div class="nav-link"><span class="ic">📍</span> Cidades</div>
+          <div class="nav-link"><span class="ic">💬</span> Suporte</div>
+          <div class="nav-link"><span class="ic">⚙</span> Configurações</div>
+        </div>
+        <div class="admin-main">
+          <div class="admin-topbar">
+            <div><h2>Visão geral</h2><p>Segunda-feira, 17 de agosto</p></div>
+            <div class="admin-user"><div class="avatar">AD</div></div>
+          </div>
+          <div class="metric-grid">
+            <div class="metric-card"><p>Corridas hoje</p><h3>346</h3><div class="delta">+12% vs. ontem</div></div>
+            <div class="metric-card"><p>Motoristas online</p><h3>58</h3><div class="delta">+4 na última hora</div></div>
+            <div class="metric-card"><p>Receita do dia</p><h3>R$ 6.410</h3><div class="delta">+8% vs. ontem</div></div>
+            <div class="metric-card"><p>Taxa de aceitação</p><h3>93%</h3><div class="delta">Meta: 90%</div></div>
+          </div>
+          <div class="admin-grid-2">
+            <div class="panel">
+              <h4>Mapa ao vivo</h4>
+              <div class="live-map">
+                <div class="car-mini" style="top:20%;left:18%;">🚗</div>
+                <div class="car-mini" style="top:50%;left:40%;">🚗</div>
+                <div class="car-mini" style="top:64%;left:70%;">🚗</div>
+                <div class="car-mini" style="top:30%;left:78%;">🚗</div>
+                <div class="car-mini" style="top:76%;left:24%;">🚗</div>
+              </div>
+            </div>
+            <div class="panel">
+              <h4>Corridas em andamento</h4>
+              <table>
+                <tr><th>Passageiro</th><th>Status</th><th>Valor</th></tr>
+                <tr><td>Marina C.</td><td><span class="badge progress">Em corrida</span></td><td class="mono">R$ 18,50</td></tr>
+                <tr><td>João P.</td><td><span class="badge searching">Buscando</span></td><td class="mono">R$ 22,00</td></tr>
+                <tr><td>Helena S.</td><td><span class="badge done">Concluída</span></td><td class="mono">R$ 14,90</td></tr>
+                <tr><td>Bruno F.</td><td><span class="badge progress">Em corrida</span></td><td class="mono">R$ 31,20</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+      document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+      tab.classList.add('active');
+      document.getElementById('view-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>
