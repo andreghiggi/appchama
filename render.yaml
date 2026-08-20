@@ -1,0 +1,43 @@
+# AppChama — deploy online (Fase 1)
+#
+# ⚠️ Vercel e GitHub Pages NÃO rodam Laravel, MySQL, Redis ou Filament.
+# Use Railway para API + Admin, e GitHub Pages só para o mockup visual.
+
+services:
+  - type: web
+    name: appchama-api
+    runtime: docker
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    healthCheckPath: /up
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: SESSION_DRIVER
+        value: database
+      - key: QUEUE_CONNECTION
+        value: redis
+      - key: CACHE_STORE
+        value: redis
+      - key: BROADCAST_CONNECTION
+        value: log
+      - key: SMS_PROVIDER
+        value: log
+      - key: DEFAULT_TENANT_SLUG
+        value: chama-demo
+      - key: APP_KEY
+        generateValue: true
+    buildCommand: echo "Docker build"
+
+databases:
+  - name: appchama-mysql
+    plan: free
+    databaseName: appchama
+    user: appchama
+
+# Após criar, adicione Redis manualmente no dashboard Render (free tier limitado)
+# ou use QUEUE_CONNECTION=database temporariamente.

@@ -16,9 +16,9 @@ RUN composer install --no-dev --no-scripts --no-autoloader || true
 
 COPY api/ .
 
-RUN composer dump-autoload --optimize
-
-RUN chown -R www-data:www-data /var/www/api/storage /var/www/api/bootstrap/cache
+RUN composer dump-autoload --optimize \
+    && php artisan filament:assets --no-interaction \
+    && chown -R www-data:www-data /var/www/api/storage /var/www/api/bootstrap/cache /var/www/api/public
 
 EXPOSE 9000
 CMD ["php-fpm"]
