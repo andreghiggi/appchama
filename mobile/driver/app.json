@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Chama Motorista",
+    "slug": "chama-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "chama-driver",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#14213D"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.appchama.driver"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#14213D"
+      },
+      "package": "com.appchama.driver"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "driver-local"
+      }
+    }
+  }
+}

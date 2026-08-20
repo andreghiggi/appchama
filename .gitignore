@@ -1,0 +1,15 @@
+/node_modules
+/vendor
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+*.sqlite
+/api/storage/*.key
+/api/vendor
+/mobile/*/node_modules
+/mobile/*/.expo
+/mobile/*/dist

@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@shared/*": ["../shared/*"]
+    }
+  },
+  "extends": "expo/tsconfig.base"
+}

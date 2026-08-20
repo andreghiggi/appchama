@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Chama Passageiro",
+    "slug": "chama-passenger",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "chama-passenger",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#14213D"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.appchama.passenger"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#14213D"
+      },
+      "package": "com.appchama.passenger"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "passenger-local"
+      }
+    }
+  }
+}
