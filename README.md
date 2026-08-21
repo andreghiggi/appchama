@@ -146,16 +146,31 @@ server {
 4. Certbot: `certbot --nginx -d api.seudominio.com.br`
 5. Processos persistentes: Horizon, Reverb e queue worker via Supervisor ou containers Docker.
 
+## URLs públicas (VPS hospedagem i9)
+
+O domínio `agilizeerp.com.br` é gerido no **projeto web** (BIND + Caddy na VPS `69.169.97.213`).
+O AppChama roda lá (não neste PC Windows — a porta 80 do XAMPP não é alcançável da internet).
+
+| Serviço | URL |
+|---------|-----|
+| Admin Filament | https://appchama.agilizeerp.com.br/admin |
+| API REST | https://apichama.agilizeerp.com.br/api/v1 |
+| Health | https://apichama.agilizeerp.com.br/up |
+
+**Login admin:** `admin@chama.app` / `password`
+
+Arquivos na VPS:
+
+- Site: `/opt/projeto-web/sites/clients/appchama-agilizeerp`
+- Caddy: `/opt/projeto-web/clients/appchama-agilizeerp.vps.caddy`
+- DNS: `/etc/bind/zones/db.agilizeerp.com.br` (`appchama` / `apichama` → A)
+
 ### XAMPP Windows (sem Docker)
 
 Deploy nativo com Apache + MariaDB 3307 + Redis compartilhado.  
 Guia completo: [docs/DEPLOY-XAMPP.md](docs/DEPLOY-XAMPP.md)
 
-| URL | Endereço |
-|-----|----------|
-| Admin | https://appchama.agilizeerp.com.br/admin |
-| API | https://apichama.agilizeerp.com.br/api/v1 |
-| Health | https://apichama.agilizeerp.com.br/up |
+Útil para desenvolvimento local. Produção pública usa a VPS acima.
 
 ## Funcionalidades Fase 1
 
