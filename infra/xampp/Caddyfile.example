@@ -1,6 +1,9 @@
-# Exemplo: Caddy na frente do Apache XAMPP (HTTPS → HTTP :80)
-# Substitua o placeholder atual de agilizeerp.com.br
+# Caddy — HTTPS na frente do Apache XAMPP (:80)
 
-agilizeerp.com.br, www.agilizeerp.com.br {
+appchama.agilizeerp.com.br {
+    reverse_proxy 127.0.0.1:80
+}
+
+apichama.agilizeerp.com.br {
     reverse_proxy 127.0.0.1:80
 }

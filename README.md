@@ -153,9 +153,9 @@ Guia completo: [docs/DEPLOY-XAMPP.md](docs/DEPLOY-XAMPP.md)
 
 | URL | Endereço |
 |-----|----------|
-| API | https://agilizeerp.com.br/api/v1 |
-| Admin | https://agilizeerp.com.br/admin |
-| Health | https://agilizeerp.com.br/up |
+| Admin | https://appchama.agilizeerp.com.br/admin |
+| API | https://apichama.agilizeerp.com.br/api/v1 |
+| Health | https://apichama.agilizeerp.com.br/up |
 
 ## Funcionalidades Fase 1
 

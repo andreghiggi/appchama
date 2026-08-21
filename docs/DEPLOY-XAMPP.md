@@ -2,29 +2,36 @@
 
 Deploy nativo no Windows + XAMPP, **sem conflitar** com serviços existentes.
 
+## Domínios
+
+| Papel | Subdomínio |
+|-------|------------|
+| **Admin + painel** | `appchama.agilizeerp.com.br` |
+| **API REST** | `apichama.agilizeerp.com.br` |
+
 ## Isolamento (nada para)
 
 | Recurso | AppChama usa | Outros projetos |
 |---------|--------------|-----------------|
-| MySQL | Schema **`appchama`** na porta **3307** (mesmo MariaDB XAMPP) | `emissorfiscal_laravel`, `seucontrole`, etc. |
-| Redis | Prefixo **`appchama-database-`** (DB 2/3) | Compartilhado na 6379 |
-| HTTP | Apache **:80** vhost `agilizeerp.com.br` | `emitsmart.local`, `localhost` |
-| WebSocket | **Desligado** (`BROADCAST_CONNECTION=log`) | Evolution API mantém **8080** |
+| MySQL | Schema **`appchama`** na porta **3307** | demais bancos no mesmo MariaDB |
+| Redis | Prefixo **`appchama-database-`** | Compartilhado na 6379 |
+| HTTP | Apache **:80** (dois vhosts) | `emitsmart.local`, `localhost` |
+| WebSocket | **Desligado** | Evolution API mantém **8080** |
 | Filas | `queue:work` (sem porta TCP) | — |
 
 ## URLs (após DNS/Caddy apontar para este servidor)
 
 | Serviço | URL |
 |---------|-----|
-| Health | https://agilizeerp.com.br/up |
-| API REST | https://agilizeerp.com.br/api/v1 |
-| Admin Filament | https://agilizeerp.com.br/admin |
-| Mockup (GitHub Pages) | https://andreghiggi.github.io/appchama/ |
+| Admin Filament | https://appchama.agilizeerp.com.br/admin |
+| Health (API) | https://apichama.agilizeerp.com.br/up |
+| API REST | https://apichama.agilizeerp.com.br/api/v1 |
+| Mockup | https://andreghiggi.github.io/appchama/ |
 
 **Login admin:** `admin@chama.app` / `password`  
 **Tenant:** `chama-demo`
 
-## Passo a passo (já aplicado neste servidor)
+## Passo a passo
 
 ### 1. Banco MySQL (porta 3307)
 
@@ -38,7 +45,14 @@ C:\xampp\mysql\bin\mysql.exe -u root -P 3307 -e "CREATE DATABASE IF NOT EXISTS a
 cd C:\xampp\htdocs\appchama\api
 copy .env.xampp.example .env
 php artisan key:generate
-# Edite DB_PASSWORD e APP_URL
+```
+
+Variáveis principais:
+
+```env
+APP_URL=https://appchama.agilizeerp.com.br
+API_URL=https://apichama.agilizeerp.com.br
+SANCTUM_STATEFUL_DOMAINS=appchama.agilizeerp.com.br,apichama.agilizeerp.com.br
 ```
 
 ### 3. Migrations + assets
@@ -54,45 +68,31 @@ php artisan storage:link
 
 ### 4. Apache vhost
 
-Copie o bloco de `infra/xampp/httpd-vhosts-appchama.conf` para  
+Copie `infra/xampp/httpd-vhosts-appchama.conf` para  
 `C:\xampp\apache\conf\extra\httpd-vhosts.conf` e reinicie o Apache.
 
-Habilite `extension=intl` em `C:\xampp\php\php.ini`.
+### 5. Caddy (HTTPS)
 
-### 5. Worker de filas
+Veja `infra/xampp/Caddyfile.example` — dois blocos `reverse_proxy` para `:80`.
 
-```powershell
-# Manual ou Agendador de Tarefas do Windows
-C:\xampp\htdocs\appchama\infra\xampp\queue-worker.bat
-```
+Registros DNS necessários (tipo A ou CNAME para este servidor):
 
-### 6. Domínio público (Caddy → Apache)
+- `appchama.agilizeerp.com.br`
+- `apichama.agilizeerp.com.br`
 
-O domínio `agilizeerp.com.br` hoje responde via **Caddy** (HTTPS).  
-Para servir o AppChama, substitua o site estático por reverse proxy:
-
-```caddyfile
-agilizeerp.com.br, www.agilizeerp.com.br {
-    reverse_proxy 127.0.0.1:80
-}
-```
-
-Se Caddy estiver em outra máquina, aponte para o IP interno deste XAMPP na porta 80.
-
-### 7. Apps mobile
-
-`mobile/passenger/.env` e `mobile/driver/.env`:
+### 6. Apps mobile
 
 ```env
-EXPO_PUBLIC_API_URL=https://agilizeerp.com.br/api/v1
+EXPO_PUBLIC_API_URL=https://apichama.agilizeerp.com.br/api/v1
 EXPO_PUBLIC_TENANT_SLUG=chama-demo
 ```
 
 ## Verificação local
 
 ```powershell
-curl -H "Host: agilizeerp.com.br" http://127.0.0.1/up
-curl -H "Host: agilizeerp.com.br" http://127.0.0.1/api/v1/cities
+curl -H "Host: appchama.agilizeerp.com.br" http://127.0.0.1/admin/login
+curl -H "Host: apichama.agilizeerp.com.br" http://127.0.0.1/up
+curl -H "Host: apichama.agilizeerp.com.br" http://127.0.0.1/api/v1/cities
 ```
 
 ## Atualizar deploy
@@ -103,7 +103,6 @@ git pull
 cd api
 composer install --no-dev --optimize-autoloader
 php artisan migrate --force
-php artisan filament:assets
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
