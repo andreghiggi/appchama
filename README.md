@@ -32,6 +32,7 @@ copy .env.example .env
 php artisan key:generate
 New-Item -ItemType File database\database.sqlite -Force
 php artisan migrate:fresh --seed
+php artisan filament:assets
 php artisan serve --port=8088
 ```
 
@@ -144,6 +145,17 @@ server {
 
 4. Certbot: `certbot --nginx -d api.seudominio.com.br`
 5. Processos persistentes: Horizon, Reverb e queue worker via Supervisor ou containers Docker.
+
+### XAMPP Windows (sem Docker)
+
+Deploy nativo com Apache + MariaDB 3307 + Redis compartilhado.  
+Guia completo: [docs/DEPLOY-XAMPP.md](docs/DEPLOY-XAMPP.md)
+
+| URL | Endereço |
+|-----|----------|
+| API | https://agilizeerp.com.br/api/v1 |
+| Admin | https://agilizeerp.com.br/admin |
+| Health | https://agilizeerp.com.br/up |
 
 ## Funcionalidades Fase 1
 

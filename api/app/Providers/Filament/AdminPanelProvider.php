@@ -30,8 +30,9 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->brandName('Chama Admin')
             ->colors([
-                'primary' => '#FF9F1C',
-                'gray' => '#14213D',
+                'primary' => Color::hex('#FF9F1C'),
+                'danger' => Color::hex('#E24B4A'),
+                'success' => Color::hex('#0F9E8D'),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
