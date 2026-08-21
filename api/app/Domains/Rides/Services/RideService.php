@@ -58,7 +58,9 @@ class RideService
 
     public function accept(Ride $ride, User $driver): Ride
     {
-        $this->assertDriver($ride, $driver);
+        abort_unless($driver->isDriver(), 403);
+        abort_unless($ride->status === 'searching', 422, 'Corrida não está disponível para aceite.');
+
         $this->transition($ride, 'accepted', [
             'driver_id' => $driver->id,
             'accepted_at' => now(),
@@ -70,7 +72,8 @@ class RideService
 
     public function decline(Ride $ride, User $driver): void
     {
-        $this->assertDriver($ride, $driver);
+        abort_unless($driver->isDriver(), 403);
+        // Matching continua para o próximo candidato enquanto status = searching
     }
 
     public function arrive(Ride $ride, User $driver): Ride
