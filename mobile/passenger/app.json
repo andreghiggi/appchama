@@ -19,6 +19,9 @@
       },
       "package": "com.appchama.passenger"
     },
+    "web": {
+      "bundler": "metro"
+    },
     "extra": {
       "eas": {
         "projectId": "passenger-local"

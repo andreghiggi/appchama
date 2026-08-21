@@ -19,6 +19,9 @@
       },
       "package": "com.appchama.driver"
     },
+    "web": {
+      "bundler": "metro"
+    },
     "extra": {
       "eas": {
         "projectId": "driver-local"

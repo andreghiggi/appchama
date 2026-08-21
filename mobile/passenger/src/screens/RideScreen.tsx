@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { api } from '../../../shared/api';
+import { AppMap, AppMarker } from '../../../shared/SimpleMap';
 import { theme } from '../../../shared/theme';
 import type { Ride } from '../../../shared/types';
 
@@ -55,8 +55,9 @@ export default function RideScreen({ ride: initial, onFinish, onRate }: Props) {
         </Text>
       </View>
 
-      <MapView
+      <AppMap
         style={styles.map}
+        title="Acompanhar corrida"
         region={{
           latitude: lat,
           longitude: lng,
@@ -64,8 +65,8 @@ export default function RideScreen({ ride: initial, onFinish, onRate }: Props) {
           longitudeDelta: 0.03,
         }}
       >
-        <Marker coordinate={{ latitude: lat, longitude: lng }} title="Origem" pinColor={theme.ink} />
-      </MapView>
+        <AppMarker coordinate={{ latitude: lat, longitude: lng }} title="Origem" />
+      </AppMap>
 
       <View style={styles.sheet}>
         <Text style={styles.driverName}>{ride.driver?.user?.name ?? 'Buscando motorista...'}</Text>

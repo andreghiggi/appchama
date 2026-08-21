@@ -8,10 +8,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import MapView from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../shared/api';
+import { AppMap } from '../../../shared/SimpleMap';
 import { theme } from '../../../shared/theme';
 import type { Ride } from '../../../shared/types';
 
@@ -112,7 +112,7 @@ export default function DashboardScreen({ onOffer }: Props) {
         </Text>
       </View>
 
-      <MapView style={styles.map} region={region} />
+      <AppMap style={styles.map} region={region} title="Mapa do motorista" />
     </View>
   );
 }

@@ -8,9 +8,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { api } from '../../../shared/api';
+import { AppMap, AppMarker } from '../../../shared/SimpleMap';
 import { theme } from '../../../shared/theme';
 import type { Ride } from '../../../shared/types';
 
@@ -77,9 +77,9 @@ export default function HomeScreen({ onRideActive }: Props) {
 
   return (
     <View style={styles.container}>
-      <MapView style={styles.map} region={region} onRegionChangeComplete={setRegion}>
-        <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }} title="Você" />
-      </MapView>
+      <AppMap style={styles.map} region={region} onRegionChangeComplete={setRegion} title="Sua localização">
+        <AppMarker coordinate={{ latitude: region.latitude, longitude: region.longitude }} title="Você" />
+      </AppMap>
 
       <View style={styles.sheet}>
         <Text style={styles.greet}>Para onde vamos?</Text>

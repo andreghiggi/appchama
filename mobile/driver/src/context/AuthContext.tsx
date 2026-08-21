@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
 import { api, setToken } from '../../shared/api';
+import { storage } from '../../shared/storage';
 import type { User } from '../../shared/types';
 
 type AuthContextValue = {
@@ -18,13 +18,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const token = await SecureStore.getItemAsync('token');
+      const token = await storage.getItem('token');
       if (token) {
         setToken(token);
         try {
           setUser(await api.me());
         } catch {
-          await SecureStore.deleteItemAsync('token');
+          await storage.deleteItem('token');
           setToken(null);
         }
       }
@@ -37,12 +37,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       loading,
       login: async (token, nextUser) => {
-        await SecureStore.setItemAsync('token', token);
+        await storage.setItem('token', token);
         setToken(token);
         setUser(nextUser);
       },
       logout: async () => {
-        await SecureStore.deleteItemAsync('token');
+        await storage.deleteItem('token');
         setToken(null);
         setUser(null);
       },
