@@ -23,9 +23,13 @@ export default function LoginScreen() {
   const sendOtp = async () => {
     setLoading(true);
     try {
-      await api.sendOtp(phone);
+      const res = await api.sendOtp(phone);
       setStep('code');
-      Alert.alert('OTP enviado', 'Em dev, veja storage/logs/laravel.log no backend.');
+      Alert.alert(
+        'OTP enviado',
+        res.debug_code ? `Código de teste: ${res.debug_code}` : 'Verifique o SMS/log.',
+      );
+      if (res.debug_code) setCode(res.debug_code);
     } catch (e: unknown) {
       Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao enviar OTP');
     } finally {

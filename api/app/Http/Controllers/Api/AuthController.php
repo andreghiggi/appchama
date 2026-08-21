@@ -20,7 +20,12 @@ class AuthController extends Controller
 
         $this->otpService->send($data['phone'], $data['tenant_slug']);
 
-        return response()->json(['message' => 'OTP enviado.']);
+        $payload = ['message' => 'OTP enviado.'];
+        if (config('services.sms.provider', 'log') === 'log') {
+            $payload['debug_code'] = $this->otpService->peekLatestCode($data['phone'], $data['tenant_slug']);
+        }
+
+        return response()->json($payload);
     }
 
     public function verifyOtp(Request $request): JsonResponse

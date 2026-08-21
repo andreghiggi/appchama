@@ -33,7 +33,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   sendOtp: (phone: string) =>
-    request('/auth/otp/send', {
+    request<{ message: string; debug_code?: string }>('/auth/otp/send', {
       method: 'POST',
       body: JSON.stringify({ phone, tenant_slug: TENANT_SLUG }),
     }),

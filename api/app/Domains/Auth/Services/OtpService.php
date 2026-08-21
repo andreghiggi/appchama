@@ -35,6 +35,21 @@ class OtpService
         }
     }
 
+    /** Exposto só em SMS_PROVIDER=log para facilitar testes. */
+    public function peekLatestCode(string $phone, string $tenantSlug): ?string
+    {
+        $tenant = Tenant::query()->where('slug', $tenantSlug)->first();
+        if (! $tenant) {
+            return null;
+        }
+
+        return OtpCode::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('phone', $phone)
+            ->latest()
+            ->value('code');
+    }
+
     public function verify(string $phone, string $code, string $tenantSlug, ?array $registerData = null): User
     {
         $tenant = Tenant::query()->where('slug', $tenantSlug)->firstOrFail();
