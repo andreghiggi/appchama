@@ -2,25 +2,27 @@
 
 namespace App\Domains\Rides\Services;
 
+use App\Domains\Maps\Services\MapboxService;
 use App\Models\City;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class FareCalculatorService
 {
+    public function __construct(private MapboxService $mapbox) {}
+
     public function estimate(float $originLat, float $originLng, float $destLat, float $destLng, City $city): array
     {
-        $route = $this->getRoute($originLat, $originLng, $destLat, $destLng);
+        $route = $this->mapbox->directions($originLat, $originLng, $destLat, $destLng);
 
         $distanceKm = $route['distance_km'];
         $durationMin = $route['duration_min'];
-
         $fare = $this->calculate($city, $distanceKm, $durationMin);
 
         return [
             'distance_km' => $distanceKm,
             'duration_min' => $durationMin,
             'estimated_fare' => $fare,
+            'polyline' => $route['polyline'],
+            'coordinates' => $route['coordinates'],
         ];
     }
 
@@ -48,46 +50,6 @@ class FareCalculatorService
             + ($durationMin * (float) $city->price_per_min);
 
         return round(max($fare, (float) $city->min_fare), 2);
-    }
-
-    private function getRoute(float $originLat, float $originLng, float $destLat, float $destLng): array
-    {
-        $token = config('services.mapbox.token');
-
-        if (! $token) {
-            $distanceKm = $this->haversine($originLat, $originLng, $destLat, $destLng);
-
-            return [
-                'distance_km' => round($distanceKm, 2),
-                'duration_min' => (int) ceil($distanceKm / 0.5),
-            ];
-        }
-
-        try {
-            $url = "https://api.mapbox.com/directions/v5/mapbox/driving/{$originLng},{$originLat};{$destLng},{$destLat}";
-            $response = Http::get($url, [
-                'access_token' => $token,
-                'overview' => 'false',
-            ]);
-
-            if ($response->successful()) {
-                $route = $response->json('routes.0');
-
-                return [
-                    'distance_km' => round(($route['distance'] ?? 0) / 1000, 2),
-                    'duration_min' => (int) ceil(($route['duration'] ?? 0) / 60),
-                ];
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Mapbox directions failed: '.$e->getMessage());
-        }
-
-        $distanceKm = $this->haversine($originLat, $originLng, $destLat, $destLng);
-
-        return [
-            'distance_km' => round($distanceKm, 2),
-            'duration_min' => (int) ceil($distanceKm / 0.5),
-        ];
     }
 
     private function haversine(float $lat1, float $lng1, float $lat2, float $lng2): float
