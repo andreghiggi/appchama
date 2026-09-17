@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
@@ -27,8 +27,8 @@ import { useAnimatedLocation } from './useAnimatedLocation';
 import { AppMap, AppMarker, AppRoute } from './SimpleMap';
 
 import type { Ride } from './types';
-
-
+import type { LatLng } from './coords';
+import type { RoutePhase } from './rideMapHelpers';
 
 type Props = {
 
@@ -50,7 +50,22 @@ type Props = {
 
 };
 
+function buildPhaseFallbackRoute(
+  phase: RoutePhase,
+  origin: LatLng,
+  destination: LatLng,
+  driverPoint: LatLng | null,
+): LatLng[] {
+  if (phase === 'to_pickup') {
+    return buildRoutePoints(driverPoint ?? origin, origin);
+  }
 
+  if (phase === 'to_destination') {
+    return buildRoutePoints(driverPoint ?? origin, destination);
+  }
+
+  return buildRoutePoints(origin, destination);
+}
 
 export default function RideMapPanel({
 
@@ -71,6 +86,7 @@ export default function RideMapPanel({
 }: Props) {
 
   const [recenterToken, setRecenterToken] = useState(0);
+  const lastRouteRef = useRef<LatLng[]>([]);
 
   const isDriverView = perspective === 'driver';
 
@@ -100,62 +116,53 @@ export default function RideMapPanel({
     const fromApi = toLatLngList(ride.route_coordinates ?? []);
     const tripFromApi = toLatLngList(ride.trip_route_coordinates ?? []);
     const driverPoint = toLatLng(driverLocRaw);
+    const pickupTarget = {
+      latitude: target.latitude,
+      longitude: target.longitude,
+    };
 
-    const mergeLiveDriver = (route: ReturnType<typeof toLatLngList>) => {
+    const mergeLiveDriver = (route: LatLng[]) => {
       if (!driverPoint || route.length < 2) {
         return route;
       }
       return [driverPoint, ...route.slice(1)];
     };
 
+    const fallbackRoute = () =>
+      buildPhaseFallbackRoute(phase, origin, destination, driverPoint);
+
+    let resolved: LatLng[] = [];
+
     if (isDriverView) {
       if (fromApi.length >= 2) {
-        return mergeLiveDriver(fromApi);
+        resolved = mergeLiveDriver(fromApi);
+      } else if (phase === 'full' && tripFromApi.length >= 2) {
+        resolved = mergeLiveDriver(tripFromApi);
+      } else {
+        resolved = fallbackRoute();
       }
-
-      if (phase === 'to_pickup' && driverPoint) {
-        return buildRoutePoints(driverPoint, origin);
-      }
-
-      if (phase === 'to_destination' && driverPoint) {
-        return buildRoutePoints(driverPoint, destination);
-      }
-
-      if (phase === 'full' && tripFromApi.length >= 2) {
-        return tripFromApi;
-      }
-
-      if (phase === 'full') {
-        return buildRoutePoints(origin, destination);
-      }
-
-      return [];
+    } else if (fromApi.length >= 2) {
+      resolved = fromApi;
+    } else if (phase === 'full' && tripFromApi.length >= 2) {
+      resolved = tripFromApi;
+    } else if (phase === 'to_destination' && tripFromApi.length >= 2 && !driverPoint) {
+      resolved = tripFromApi;
+    } else if (phase === 'to_pickup') {
+      resolved = buildRoutePoints(driverPoint ?? origin, pickupTarget);
+    } else {
+      resolved = fallbackRoute();
     }
 
-    if (fromApi.length >= 2) {
-      return fromApi;
+    if (resolved.length >= 2) {
+      lastRouteRef.current = resolved;
+      return resolved;
     }
 
-    if (phase === 'full' && tripFromApi.length >= 2) {
-      return tripFromApi;
+    if (lastRouteRef.current.length >= 2) {
+      return lastRouteRef.current;
     }
 
-    if (phase === 'to_pickup' && driverPoint) {
-      return buildRoutePoints(driverPoint, {
-        latitude: target.latitude,
-        longitude: target.longitude,
-      });
-    }
-
-    if (phase === 'to_destination' && driverPoint) {
-      return buildRoutePoints(driverPoint, destination);
-    }
-
-    if (phase === 'full') {
-      return buildRoutePoints(origin, destination);
-    }
-
-    return [];
+    return buildRoutePoints(origin, destination);
   }, [
     isDriverView,
     ride.route_coordinates,
@@ -260,14 +267,17 @@ export default function RideMapPanel({
 
 
 
+  const isActiveRide = ['accepted', 'driver_arrived', 'in_progress'].includes(ride.status);
+
   const showTargetWithEta =
     !isDriverView && (phase === 'to_pickup' || phase === 'to_destination');
 
   const showOriginPin =
-    (phase === 'full' || phase === 'to_pickup') && !(showTargetWithEta && phase === 'to_pickup');
+    (isActiveRide || phase === 'full' || phase === 'to_pickup') &&
+    !(showTargetWithEta && phase === 'to_pickup');
 
   const showDestinationPin =
-    (phase === 'full' || phase === 'to_destination') &&
+    (isActiveRide || phase === 'full' || phase === 'to_destination') &&
     !(showTargetWithEta && phase === 'to_destination');
 
 

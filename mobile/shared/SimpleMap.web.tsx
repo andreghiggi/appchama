@@ -300,6 +300,7 @@ export function AppRoute({ coordinates }: { coordinates: AnyLatLng[] }) {
   const points = toLatLngList(coordinates);
   const pointsRef = useRef<LatLng[]>(points);
   pointsRef.current = points;
+  const lastLineRef = useRef<[number, number][]>([]);
 
   const signature = points
     .map((p) => `${p.latitude.toFixed(5)},${p.longitude.toFixed(5)}`)
@@ -314,15 +315,33 @@ export function AppRoute({ coordinates }: { coordinates: AnyLatLng[] }) {
       (p) => [p.longitude, p.latitude] as [number, number],
     );
 
-    if (lineCoords.length < 2) return;
+    if (lineCoords.length < 2) {
+      if (lastLineRef.current.length >= 2) {
+        pointsRef.current = lastLineRef.current.map(([lng, lat]) => ({
+          latitude: lat,
+          longitude: lng,
+        }));
+      } else {
+        return;
+      }
+    } else {
+      lastLineRef.current = lineCoords;
+    }
+
+    const activeLineCoords =
+      lineCoords.length >= 2
+        ? lineCoords
+        : lastLineRef.current;
 
     const geojson: GeoJSON.Feature<GeoJSON.LineString> = {
       type: 'Feature',
       properties: {},
-      geometry: { type: 'LineString', coordinates: lineCoords },
+      geometry: { type: 'LineString', coordinates: activeLineCoords },
     };
 
     const apply = () => {
+      if (!map.isStyleLoaded()) return;
+
       const source = map.getSource('chama-route') as mapboxgl.GeoJSONSource | undefined;
 
       if (source) {
@@ -353,16 +372,19 @@ export function AppRoute({ coordinates }: { coordinates: AnyLatLng[] }) {
 
     const run = () => {
       if (!map.isStyleLoaded()) {
-        map.once('load', apply);
+        map.once('styledata', run);
+        map.once('load', run);
         return;
       }
       apply();
     };
 
     run();
+    map.on('styledata', apply);
     map.on('idle', apply);
 
     return () => {
+      map.off('styledata', apply);
       map.off('idle', apply);
     };
   }, [map, signature]);

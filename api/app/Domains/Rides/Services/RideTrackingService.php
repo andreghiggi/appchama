@@ -62,7 +62,10 @@ class RideTrackingService
 
         $driver = $ride->relationLoaded('driver')
             ? $ride->driver
-            : Driver::query()->with('city:id,departure_lat,departure_lng')->find($ride->driver_id);
+            : Driver::query()
+                ->with('city:id,departure_lat,departure_lng')
+                ->where('user_id', $ride->driver_id)
+                ->first();
 
         if (! $driver) {
             $tracking['route_coordinates'] = $this->ensureRouteCoordinates(
@@ -97,8 +100,7 @@ class RideTrackingService
                     $destLng,
                 );
             } else {
-                [$fromLat, $fromLng] = $this->resolveDriverFallbackPoint($driver, $originLat, $originLng);
-                $route = $this->mapbox->directions($fromLat, $fromLng, $destLat, $destLng);
+                $route = $this->mapbox->directions($originLat, $originLng, $destLat, $destLng);
             }
         } elseif ($ride->status === 'driver_arrived') {
             $tracking['route_phase'] = 'full';
@@ -151,6 +153,9 @@ class RideTrackingService
 
         if ($driverLoc) {
             $fallbackFrom = $driverLoc;
+        } elseif ($ride->status === 'in_progress') {
+            $fallbackFrom = ['latitude' => $originLat, 'longitude' => $originLng];
+            $tracking['driver_location'] = $fallbackFrom;
         } else {
             [$fbLat, $fbLng] = $this->resolveDriverFallbackPoint($driver, $originLat, $originLng);
             $fallbackFrom = ['latitude' => $fbLat, 'longitude' => $fbLng];
