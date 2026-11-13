@@ -31,6 +31,10 @@ class CityForm
                             ->label('Habilitar corridas')
                             ->helperText('Libera a área de 50 km em torno do endereço de partida para passageiros pedirem corridas.')
                             ->default(false),
+                        Toggle::make('driver_signup_enabled')
+                            ->label('Aceita cadastro de motoristas pelo app')
+                            ->helperText('Desligado: o motorista não consegue escolher esta cidade ao se cadastrar no app (passageiros não são afetados).')
+                            ->default(true),
                     ])
                     ->columns(2),
                 Section::make('Área de operação')

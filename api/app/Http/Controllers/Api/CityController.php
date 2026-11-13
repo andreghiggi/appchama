@@ -17,11 +17,17 @@ class CityController extends Controller
     public function index(Request $request): JsonResponse
     {
         $tenantId = $request->user()?->tenant_id ?? app('currentTenantId');
+        // ?for=driver: cidades abertas ao cadastro de motorista (independe de corridas); senao, cidades com corridas.
+        $forDriver = $request->query('for') === 'driver';
 
         $cities = City::query()
             ->when($tenantId, fn ($q) => $q->where('tenant_id', $tenantId))
             ->where('active', true)
-            ->where('rides_enabled', true)
+            ->when(
+                $forDriver,
+                fn ($q) => $q->where('driver_signup_enabled', true),
+                fn ($q) => $q->where('rides_enabled', true),
+            )
             ->orderBy('name')
             ->get([
                 'id',
@@ -36,8 +42,9 @@ class CityController extends Controller
                 'departure_lat',
                 'departure_lng',
                 'rides_enabled',
+                'driver_signup_enabled',
             ])
-            ->filter(fn (City $city) => $city->acceptsRides())
+            ->filter(fn (City $city) => $forDriver ? $city->acceptsDriverSignup() : $city->acceptsRides())
             ->values();
 
         return response()->json($cities);

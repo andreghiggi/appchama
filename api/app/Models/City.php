@@ -25,6 +25,7 @@ class City extends Model
         'min_fare',
         'active',
         'rides_enabled',
+        'driver_signup_enabled',
         'departure_address',
         'departure_lat',
         'departure_lng',
@@ -39,6 +40,7 @@ class City extends Model
             'min_fare' => 'decimal:2',
             'active' => 'boolean',
             'rides_enabled' => 'boolean',
+            'driver_signup_enabled' => 'boolean',
             'departure_lat' => 'decimal:7',
             'departure_lng' => 'decimal:7',
         ];
@@ -57,6 +59,12 @@ class City extends Model
     public function rides(): HasMany
     {
         return $this->hasMany(Ride::class);
+    }
+
+    /** Motoristas podem se cadastrar pelo app nesta cidade. */
+    public function acceptsDriverSignup(): bool
+    {
+        return $this->active && $this->driver_signup_enabled;
     }
 
     public function acceptsRides(): bool
