@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { api } from '../../../shared/api';
-import { theme, TENANT_SLUG } from '../../../shared/theme';
+import { BRAND_NAME, theme, TENANT_SLUG } from '../../../shared/theme';
 import type { City } from '../../../shared/types';
 import { useAuth } from '../context/AuthContext';
 
@@ -152,7 +152,7 @@ export default function RegisterScreen({ onBack }: Props) {
       </Pressable>
       <Text style={styles.title}>Criar conta motorista</Text>
       <Text style={styles.subtitle}>
-        Preencha seus dados e envie a CNH. A equipe Chama analisará e liberará seu acesso.
+        Preencha seus dados e envie a CNH. A equipe {BRAND_NAME} analisará e liberará seu acesso.
       </Text>
 
       <TextInput style={styles.input} placeholder="Nome completo" value={name} onChangeText={setName} />

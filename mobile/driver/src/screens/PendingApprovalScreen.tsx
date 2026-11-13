@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { LogoutButton } from '../components/LogoutButton';
 import { useAuth } from '../context/AuthContext';
-import { theme } from '../../../shared/theme';
+import { BRAND_NAME, theme } from '../../../shared/theme';
 import { subscriptionStatusLabel } from '../../../shared/labels';
 
 export default function PendingApprovalScreen() {
@@ -30,8 +30,8 @@ export default function PendingApprovalScreen() {
       <Text style={styles.text}>
         Olá, {user?.name?.split(' ')[0] ?? 'motorista'}.{' '}
         {isAppRegistration
-          ? 'Recebemos seus dados e a CNH. A equipe Chama vai analisar e liberar seu acesso em breve.'
-          : 'Seu login foi confirmado e o cadastro aguarda validação da equipe Chama no painel administrativo.'}
+          ? `Recebemos seus dados e a CNH. A equipe ${BRAND_NAME} vai analisar e liberar seu acesso em breve.`
+          : `Seu login foi confirmado e o cadastro aguarda validação da equipe ${BRAND_NAME} no painel administrativo.`}
       </Text>
       <View style={styles.card}>
         {!isAppRegistration ? (

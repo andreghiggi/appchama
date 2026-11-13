@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { api } from '../../../shared/api';
 import { requestCurrentLocation } from '../../../shared/location';
-import { theme } from '../../../shared/theme';
+import { DEFAULT_CITY, DEFAULT_STATE, theme } from '../../../shared/theme';
+import { BrandFooter, BrandHeader } from '../../../shared/BrandHeader';
 import { useAuth } from '../context/AuthContext';
 
 type Mode = 'register' | 'login';
@@ -30,8 +31,8 @@ export default function LoginScreen() {
   const [address, setAddress] = useState('');
   const [addressNumber, setAddressNumber] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  const [city, setCity] = useState('Guaporé');
-  const [state, setState] = useState('RS');
+  const [city, setCity] = useState(DEFAULT_CITY);
+  const [state, setState] = useState(DEFAULT_STATE);
   const [addressLat, setAddressLat] = useState<number | null>(null);
   const [addressLng, setAddressLng] = useState<number | null>(null);
   const [phone, setPhone] = useState('');
@@ -176,7 +177,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Chama</Text>
+      <BrandHeader />
       <Text style={styles.subtitle}>
         {mode === 'register' ? 'Crie sua conta para pedir corridas' : 'Entre na sua conta'}
       </Text>
@@ -323,6 +324,7 @@ export default function LoginScreen() {
 
       {info ? <Text style={styles.info}>{info}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      <BrandFooter />
     </View>
   );
 }

@@ -14,14 +14,20 @@
       "pacote": "com.appchama.driver"
     }
   },
-  "assets": {
-    "icone": "icone.png",
-    "icone_adaptativo": "icone-adaptativo.png",
-    "splash": "splash.png"
-  },
+  "assets": {},
   "lojas": {
     "android": false,
     "ios": false
   },
-  "observacoes": "Marca no 1 (app modelo). Pacotes e assets atuais serao levantados quando o codigo do app for importado. tenant_slug chama-demo e o atual."
+  "observacoes": "Marca no 1 (app modelo). Icone/splash proprios ainda nao existem; o build usa os padroes do Expo.",
+  "cidade_padrao": {
+    "cidade": "Guaporé",
+    "uf": "RS"
+  },
+  "tema": {
+    "ink": "#14213D",
+    "ink2": "#1D2E52",
+    "amber": "#FF9F1C",
+    "amberDark": "#C97400"
+  }
 }

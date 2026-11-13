@@ -1,4 +1,5 @@
 import { API_URL, TENANT_SLUG } from './theme';
+import type { BrandConfig } from './brand';
 import type { Ride, User, City, GeocodeResult, RidePaymentInfo, DriverWalletInfo, DriverWithdrawal } from './types';
 
 let authToken: string | null = null;
@@ -153,6 +154,8 @@ export const api = {
   listRides: () => request<{ data: Ride[] }>('/rides'),
 
   listCities: () => request<City[]>('/cities'),
+
+  brandConfig: () => request<{ data: BrandConfig }>('/brand-config'),
 
   nearestCity: (lat: number, lng: number, cityId?: string, select = false) => {
     const params = new URLSearchParams({
