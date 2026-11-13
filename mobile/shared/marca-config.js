@@ -74,6 +74,7 @@ function aplicar(config, app, appDir) {
   return {
     ...config,
     name: nome,
+    ...(marca.expo_owner ? { owner: marca.expo_owner } : {}),
     slug: `${slug}-${app}`,
     scheme: `${slug}-${app}`,
     version: process.env.APP_VERSION || config.version || '1.0.0',
