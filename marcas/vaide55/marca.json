@@ -1,14 +1,51 @@
 {
   "slug": "vaide55",
-  "nome": "Vaide55",
+  "nome": "Vai de 55",
   "tenant_slug": "vaide55",
   "api_url": "https://api.vaide55.com.br",
-  "cor_primaria": "#FF6B35",
+  "cor_primaria": "#FCD200",
   "apps": {
-    "passageiro": { "nome": "Vaide55 Passageiro", "pacote": "com.vaide55.passageiro" },
-    "motorista": { "nome": "Vaide55 Motorista", "pacote": "com.vaide55.motorista" }
+    "passageiro": {
+      "nome": "Vai de 55",
+      "pacote": "com.vaide55.passageiro"
+    },
+    "motorista": {
+      "nome": "Vai de 55 Motorista",
+      "pacote": "com.vaide55.motorista"
+    }
   },
-  "assets": { "icone": "icone.png", "icone_adaptativo": "icone-adaptativo.png", "splash": "splash.png" },
-  "lojas": { "android": true, "ios": false },
-  "observacoes": "Identificadores propostos, a confirmar pelo dono (permanentes depois de publicar). Cor provisoria. Logo e icone pendentes do dono."
+  "assets": {
+    "icone": "assets/icone.png",
+    "icone_adaptativo": "assets/icone-adaptativo.png",
+    "splash": "assets/splash.png",
+    "logo": "assets/logo-amarela-original-transparente.png",
+    "logo_fundo_branco": "assets/logo-amarela-original-fundo-branco.png",
+    "manual_pdf": "assets/logo-amarela-original.pdf",
+    "fundo_icone_adaptativo": "#111111"
+  },
+  "lojas": {
+    "android": true,
+    "ios": false
+  },
+  "observacoes": "Identidade vinda da pasta de identidade visual do dono (13/11/2026). Contatos e textos legais: a preencher pelo dono. Nomes nas lojas a confirmar.",
+  "tagline": "Viu passar? Só chamar!",
+  "tema": {
+    "ink": "#111111",
+    "ink2": "#1E1E1E",
+    "amber": "#FCD200",
+    "amberDark": "#C9A700",
+    "onAmber": "#111111"
+  },
+  "logo_url": "/brands/vaide55/logo.png",
+  "contatos": {
+    "whatsapp": null,
+    "email": null,
+    "telefone": null,
+    "site": "https://vaide55.com.br"
+  },
+  "legal": {
+    "privacidade": null,
+    "termos": null,
+    "exclusao_conta": null
+  }
 }

@@ -151,6 +151,30 @@ try {
     $check('com a marca Vaide55 no contexto, a tela edita o Vaide55', $pg->invoke($inst)->id === $vai->id);
     $limpar(); $sem = false; try { $pg->invoke($inst); } catch (\Symfony\Component\HttpKernel\Exception\HttpException) { $sem = true; }
     $check('sem marca no contexto a tela pede para escolher (nao cai na marca padrao)', $sem);
+
+    echo "== 11. Configuracao publica da marca (GET /api/v1/brand-config)\n";
+    $vai->forceFill(['tagline' => 'Viu passar? So chamar!', 'theme' => ['ink' => '#111111', 'amber' => '#FCD200'], 'contacts' => ['site' => 'https://vaide55.com.br'], 'logo_url' => '/brands/vaide55/logo.png'])->save();
+    $chama = function (string $host, array $hdr = []) use ($limpar) {
+        $limpar();
+        \Illuminate\Support\Facades\Auth::forgetGuards();
+        $req = \Illuminate\Http\Request::create('https://'.$host.'/api/v1/brand-config', 'GET', [], [], [], array_merge(['HTTP_ACCEPT' => 'application/json'], $hdr));
+        $res = app(\Illuminate\Contracts\Http\Kernel::class)->handle($req);
+        $out = [$res->getStatusCode(), json_decode($res->getContent(), true), $res->getContent()];
+        $limpar();
+        return $out;
+    };
+    $apiHostVai = $vai->domains()->where('type', 'api')->value('host');
+    [$st, $j, $raw] = $chama($apiHostVai);
+    $check('endereco da marca devolve a marca dela (nome, lema, cores, logo absoluta)', $st === 200 && $j['data']['slug'] === 'vaide55' && $j['data']['tagline'] === 'Viu passar? So chamar!' && $j['data']['theme']['amber'] === '#FCD200' && str_starts_with($j['data']['logo_url'], 'http'));
+    $check('cores nao informadas usam o padrao do AppChama', $j['data']['theme']['amberDark'] === '#C97400');
+    $check('nunca vaza chave de pagamento nem token', ! preg_match('/asaas|api_key|webhook|commission|password|secret/i', $raw));
+    [$st2, $j2] = $chama('qualquer-host-fora.invalid', ['HTTP_X_TENANT_SLUG' => $demo->slug]);
+    $check('marcas diferentes devolvem configuracoes diferentes (sem tema da outra)', $st2 === 200 && $j2['data']['slug'] === $demo->slug && $j2['data']['theme']['amber'] !== '#FCD200' && $j2['data']['name'] !== 'Vai de 55');
+    [$st4, ] = $chama('qualquer-host-fora.invalid', ['HTTP_X_TENANT_SLUG' => 'nao-existe']);
+    $check('marca inexistente nao devolve nada (404)', $st4 === 404);
+    $vai->forceFill(['status' => 'suspended'])->save();
+    [$st5, ] = $chama($apiHostVai);
+    $check('marca suspensa nao entrega configuracao (404)', $st5 === 404);
 } finally {
     DB::rollBack();
 }
