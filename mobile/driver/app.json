@@ -44,6 +44,13 @@
             "kotlinVersion": "1.9.25"
           }
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Precisamos acessar suas fotos para você enviar a CNH.",
+          "cameraPermission": "Precisamos da câmera para você fotografar a CNH."
+        }
       ]
     ]
   }
