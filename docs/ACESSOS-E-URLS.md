@@ -37,7 +37,7 @@ DNS do `vaide55.com.br`: delegado no Registro.br para `ns1.i9tecinfo.com.br` e `
 | App | Pacote | APK de teste |
 |---|---|---|
 | Vai de 55 (passageiro) | `com.vaide55.passageiro` | https://expo.dev/artifacts/eas/WKLdFQbBkJcH0-SJCRchNiP4rmAyFNW70FGEICyBgSg.apk |
-| Vai de 55 Motorista | `com.vaide55.motorista` | https://expo.dev/artifacts/eas/BYQZBnHh2huxIZwheG3IG0Fn-NY66P-HABra_3GoBy4.apk (já com envio da CNH por câmera/galeria) |
+| Vai de 55 Motorista | `com.vaide55.motorista` | https://expo.dev/artifacts/eas/_mkODMwKzNdwpbqVhZ3XTKqIahA3z3_WiHMCXBvTChQ.apk (13/11, versão atual: CNH por **Tirar foto** ou **Escolher arquivo**; o link antigo `BYQZ...` dava erro na câmera, não usar) |
 
 - Instalar: abrir o link no celular Android e permitir "instalar de fontes desconhecidas".
 - **Os pacotes `com.vaide55.*` são permanentes depois de publicados nas lojas.**
