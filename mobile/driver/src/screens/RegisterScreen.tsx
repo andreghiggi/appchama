@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -46,7 +48,7 @@ export default function RegisterScreen({ onBack }: Props) {
 
   useEffect(() => {
     api
-      .listCities()
+      .listCities('driver')
       .then((list) => {
         setCities(list);
         if (list[0]) setCityId(list[0].id);
@@ -54,9 +56,40 @@ export default function RegisterScreen({ onBack }: Props) {
       .finally(() => setLoadingCities(false));
   }, []);
 
+  // Android/iOS: foto pela câmera ou escolhida da galeria.
+  const pickCnhNative = async (fromCamera: boolean) => {
+    try {
+      const perm = fromCamera
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        setError('Permita o acesso à câmera ou às fotos para enviar a CNH.');
+        return;
+      }
+      const result = fromCamera
+        ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.7,
+          });
+      const asset = result.canceled ? null : result.assets?.[0];
+      if (!asset) return;
+      const type = asset.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+      const ext = type === 'image/png' ? 'png' : 'jpg';
+      setCnhFile({ name: asset.fileName || `cnh.${ext}`, type, uri: asset.uri });
+      setError(null);
+    } catch {
+      setError('Não foi possível anexar a foto da CNH. Tente novamente.');
+    }
+  };
+
   const pickCnh = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') {
-      setError('Envio de CNH disponível na versão web por enquanto.');
+      Alert.alert('Foto da CNH', 'Como você quer enviar?', [
+        { text: 'Tirar foto', onPress: () => void pickCnhNative(true) },
+        { text: 'Escolher da galeria', onPress: () => void pickCnhNative(false) },
+        { text: 'Cancelar', style: 'cancel' },
+      ]);
       return;
     }
 
@@ -105,7 +138,7 @@ export default function RegisterScreen({ onBack }: Props) {
       setError('Informe a placa do veículo.');
       return;
     }
-    if (!cnhFile?.file) {
+    if (!cnhFile?.file && !cnhFile?.uri) {
       setError('Envie a foto ou PDF da CNH.');
       return;
     }
@@ -126,7 +159,12 @@ export default function RegisterScreen({ onBack }: Props) {
       form.append('vehicle_model', vehicleModel.trim());
       form.append('vehicle_color', vehicleColor.trim());
       form.append('vehicle_year', vehicleYear.trim());
-      form.append('cnh_document', cnhFile.file, cnhFile.name);
+      if (cnhFile.file) {
+        form.append('cnh_document', cnhFile.file, cnhFile.name);
+      } else {
+        // React Native: arquivo local enviado por uri
+        form.append('cnh_document', { uri: cnhFile.uri, name: cnhFile.name, type: cnhFile.type } as unknown as Blob);
+      }
 
       const result = await api.driverRegister(form);
       await login(result.token, result.user);

@@ -153,7 +153,8 @@ export const api = {
 
   listRides: () => request<{ data: Ride[] }>('/rides'),
 
-  listCities: () => request<City[]>('/cities'),
+  /** Sem argumento: cidades com corridas (passageiro). 'driver': cidades abertas ao cadastro de motorista. */
+  listCities: (forRole?: 'driver') => request<City[]>(forRole === 'driver' ? '/cities?for=driver' : '/cities'),
 
   brandConfig: () => request<{ data: BrandConfig }>('/brand-config'),
 
