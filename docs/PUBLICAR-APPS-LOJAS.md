@@ -6,20 +6,22 @@ Vale para qualquer marca (`marcas/<marca>/`). Exemplo: `vaide55`. Atualizado em 
 - O código dos apps é um só (`mobile/passenger` e `mobile/driver`, Expo/React Native).
 - A marca é escolhida pela variável `MARCA`. O arquivo `mobile/shared/marca-config.js` lê `marcas/<marca>/marca.json` e `assets/` e monta nome, pacote, ícone, abertura, cores, API e identificador da marca.
 - O build é feito na nuvem do Expo (**EAS Build**), que também cuida da chave de assinatura. A VPS não compila (1 CPU, 1 GB, sem Node/Java).
-- Perfis em `mobile/eas.json`: `<marca>-teste` gera um **APK** para instalar direto no celular; `<marca>` gera o **AAB** para a Play Store.
+- Perfis em `mobile/passenger/eas.json` e `mobile/driver/eas.json` (os dois arquivos são iguais; o Expo só lê o `eas.json` da pasta do app): `<marca>-teste` gera um **APK** para instalar direto no celular; `<marca>` gera o **AAB** para a Play Store.
 
 ## Comandos (rodar em `mobile/passenger` ou `mobile/driver`)
 ```
 npm install
 MARCA=vaide55 npx expo start                       # testar no celular (Expo Go) apontando para a API da marca
 npx eas-cli login                                  # uma vez
-npx eas-cli init                                   # uma vez por app/marca: grava o id do projeto
+# (projetos Expo ja criados; para uma marca nova: eas init --account <conta> e copiar o id para marca.json, sem deixar o app.json mudar)
 npx eas-cli build --profile vaide55-teste --platform android   # APK de teste
 npx eas-cli build --profile vaide55 --platform android         # AAB para a loja
 ```
 - O id do projeto Expo de cada app vai em `marcas/<marca>/marca.json` → `apps.<passageiro|motorista>.eas_project_id` (não é segredo).
+- Conta Expo dona dos projetos: `expo_owner` em `marca.json` (hoje `andrehiggis-team`). Projetos do Vai de 55: `vaide55-passenger` e `vaide55-driver`. NÃO use `eas init` para gravar o id: ele sobrescreve o `app.json` com a configuração da marca. O id vem de `marca.json`.
+- Chave do Google Maps: já cadastrada como variável secreta `GOOGLE_MAPS_API_KEY` nos dois projetos (ambientes `preview` e `production`). Trocar: `npx eas-cli env:create --name GOOGLE_MAPS_API_KEY --value ... --environment production --visibility secret --force`.
 - Cada nova versão na loja precisa de `versao_codigo` maior (campo `apps.<app>.versao_codigo` ou variável `APP_VERSION_CODE`).
-- Segredos (chave do Google Maps etc.) NUNCA entram no repositório: `npx eas-cli secret:create --name GOOGLE_MAPS_API_KEY --value ...`.
+- Segredos (chave do Google Maps etc.) NUNCA entram no repositório: use `eas env:create ... --visibility secret`.
 
 ## O que a loja (Google Play) exige
 1. **Conta de desenvolvedor Google Play** (taxa única de US$ 25) no nome do dono. Verificação de identidade.
