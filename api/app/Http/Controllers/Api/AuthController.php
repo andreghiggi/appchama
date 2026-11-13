@@ -31,7 +31,7 @@ class AuthController extends Controller
             'message' => 'OTP enviado.',
             'user_exists' => $this->otpService->phoneExists($data['phone'], $data['tenant_slug']),
         ];
-        if (config('services.sms.provider', 'log') === 'log') {
+        if (config('services.sms.expose_debug_code', false)) {
             $payload['debug_code'] = $this->otpService->peekLatestCode($data['phone'], $data['tenant_slug']);
         }
 

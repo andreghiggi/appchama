@@ -37,6 +37,14 @@ return [
 
     'sms' => [
         'provider' => env('SMS_PROVIDER', 'log'),
+        // Devolver o codigo na resposta da API so em desenvolvimento. Em producao fica DESLIGADO.
+        'expose_debug_code' => (bool) env('OTP_EXPOSE_DEBUG_CODE', false),
+    ],
+
+    // Contas de teste (revisao das lojas, testes internos): "telefone:codigo,telefone:codigo".
+    // So esses telefones recebem codigo fixo. Nunca coloque telefone real aqui.
+    'otp' => [
+        'test_accounts' => env('OTP_TEST_ACCOUNTS', ''),
     ],
 
     'mapbox' => [

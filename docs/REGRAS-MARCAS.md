@@ -13,3 +13,10 @@
 - Logos servidas pelo backend: `api/public/brands/<marca>/logo.png`.
 - Identidade de cada marca: `marcas/<marca>/IDENTIDADE.md` + `marca.json` + `assets/`.
 - Teste: `api/scripts/verifica-isolamento.php` (secao 11) e `verifica-telas.php`.
+
+## Codigo de acesso (OTP) — seguranca (13/11/2026)
+- A API **nunca** devolve o codigo na resposta em producao (`OTP_EXPOSE_DEBUG_CODE=false`). So em desenvolvimento (`true`).
+- Contas de teste (revisao das lojas e testes internos): `OTP_TEST_ACCOUNTS="telefone:codigo,telefone:codigo"` no `.env` do servidor. So esses telefones tem codigo fixo (6 digitos). Nunca colocar telefone real. Os valores nao vao para o Git.
+- Limites: ate 5 pedidos de codigo e 10 tentativas por telefone a cada 10 minutos (e por IP). Acima disso a API responde 429.
+- SMS real ainda nao esta ligado (tarefa B1): ate la, so as contas de teste conseguem entrar.
+- Teste: `api/scripts/verifica-otp.php`.

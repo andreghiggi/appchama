@@ -21,7 +21,8 @@ class OtpService
             ->where('phone', $phone)
             ->delete();
 
-        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $fixo = $this->testCodeFor($phone);
+        $code = $fixo ?? str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         OtpCode::query()->create([
             'tenant_id' => $tenant->id,
@@ -32,12 +33,35 @@ class OtpService
 
         $provider = config('services.sms.provider', 'log');
 
-        if ($provider === 'log') {
-            Log::info("OTP for {$phone}: {$code}");
+        if ($provider === 'log' && $fixo === null) {
+            // O codigo so vai para o log em desenvolvimento; em producao o log nao guarda codigos.
+            Log::info(config('services.sms.expose_debug_code')
+                ? "OTP for {$phone}: {$code}"
+                : 'OTP gerado para ****'.substr(preg_replace('/\D/', '', $phone), -4));
         }
     }
 
-    /** Exposto só em SMS_PROVIDER=log para facilitar testes. */
+    /** Codigo fixo se o telefone esta na lista de contas de teste (OTP_TEST_ACCOUNTS); senao null. */
+    public function testCodeFor(string $phone): ?string
+    {
+        $digits = preg_replace('/\D/', '', $phone);
+        if ($digits === '') {
+            return null;
+        }
+        foreach (explode(',', (string) config('services.otp.test_accounts', '')) as $par) {
+            [$tel, $cod] = array_pad(explode(':', trim($par), 2), 2, '');
+            $tel = preg_replace('/\D/', '', $tel);
+            $cod = trim($cod);
+            if ($tel !== '' && preg_match('/^\d{6}$/', $cod)
+                && ($digits === $tel || $digits === '55'.$tel || '55'.$digits === $tel)) {
+                return $cod;
+            }
+        }
+
+        return null;
+    }
+
+    /** So usado quando OTP_EXPOSE_DEBUG_CODE=true (desenvolvimento). */
     public function peekLatestCode(string $phone, string $tenantSlug): ?string
     {
         $tenant = Tenant::query()->where('slug', $tenantSlug)->first();
