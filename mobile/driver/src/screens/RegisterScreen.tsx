@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
@@ -56,38 +57,60 @@ export default function RegisterScreen({ onBack }: Props) {
       .finally(() => setLoadingCities(false));
   }, []);
 
-  // Android/iOS: foto pela câmera ou escolhida da galeria.
-  const pickCnhNative = async (fromCamera: boolean) => {
+  const MAX_CNH_BYTES = 10 * 1024 * 1024;   // limite do servidor: 10 MB
+
+  const motivo = (e: unknown): string => {
+    const msg = e instanceof Error ? e.message : String(e);
+    return msg.replace(/\s+/g, ' ').slice(0, 140);
+  };
+
+  // Escolher um arquivo (imagem ou PDF) pelo seletor do Android: nao precisa de permissao de camera nem de galeria.
+  const pickCnhArquivo = async () => {
     try {
-      const perm = fromCamera
-        ? await ImagePicker.requestCameraPermissionsAsync()
-        : await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        setError('Permita o acesso à câmera ou às fotos para enviar a CNH.');
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png', 'application/pdf'],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      const asset = result.canceled ? null : result.assets?.[0];
+      if (!asset) return;
+      if (asset.size && asset.size > MAX_CNH_BYTES) {
+        setError('O arquivo tem mais de 10 MB. Escolha uma foto menor ou um PDF mais leve.');
         return;
       }
-      const result = fromCamera
-        ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            quality: 0.7,
-          });
+      const type = asset.mimeType || (asset.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+      setCnhFile({ name: asset.name, type, uri: asset.uri });
+      setError(null);
+    } catch (e: unknown) {
+      setError(`Não foi possível anexar o arquivo (${motivo(e)}).`);
+    }
+  };
+
+  // Tirar a foto da CNH pela câmera.
+  const pickCnhCamera = async () => {
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        setError('Permita o acesso à câmera nas configurações do celular, ou use "Escolher arquivo".');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
       const asset = result.canceled ? null : result.assets?.[0];
       if (!asset) return;
       const type = asset.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
       const ext = type === 'image/png' ? 'png' : 'jpg';
       setCnhFile({ name: asset.fileName || `cnh.${ext}`, type, uri: asset.uri });
       setError(null);
-    } catch {
-      setError('Não foi possível anexar a foto da CNH. Tente novamente.');
+    } catch (e: unknown) {
+      setError(`Não foi possível abrir a câmera (${motivo(e)}). Use "Escolher arquivo".`);
     }
   };
 
   const pickCnh = () => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') {
-      Alert.alert('Foto da CNH', 'Como você quer enviar?', [
-        { text: 'Tirar foto', onPress: () => void pickCnhNative(true) },
-        { text: 'Escolher da galeria', onPress: () => void pickCnhNative(false) },
+      Alert.alert('CNH', 'Como você quer enviar?', [
+        { text: 'Tirar foto', onPress: () => void pickCnhCamera() },
+        { text: 'Escolher arquivo', onPress: () => void pickCnhArquivo() },
         { text: 'Cancelar', style: 'cancel' },
       ]);
       return;
