@@ -4,9 +4,7 @@
     "appVersionSource": "local"
   },
   "build": {
-    "base": {
-      "channel": "producao"
-    },
+    "base": {},
     "vaide55": {
       "extends": "base",
       "env": {
