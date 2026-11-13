@@ -88,7 +88,7 @@ class MapboxService
                 'limit' => 15,
                 'country' => 'BR',
                 'language' => 'pt',
-                'types' => 'address,poi,place,locality,neighborhood',
+                'types' => 'poi,address,place,locality,neighborhood',
             ];
 
             if ($lat !== null && $lng !== null) {
@@ -110,7 +110,8 @@ class MapboxService
             $filterCenter = ($lat !== null && $lng !== null) ? [$lat, $lng] : null;
             $features = collect($response->json('features', []));
             $mapboxCount = $features->count();
-
+            // Prioriza estabelecimentos/endereço; o Mapbox às vezes retorna cidade/bairro primeiro.
+            $features = $features->sortByDesc(fn (array $feature): int => $this->searchRelevanceScore($feature, $q))->values();
             $mapped = $features
                 ->map(fn (array $feature) => [
                     'latitude' => (float) $feature['center'][1],
@@ -118,7 +119,17 @@ class MapboxService
                     'label' => $feature['place_name'] ?? $q,
                 ])
                 ->all();
-
+            // O índice Mapbox pode não conter POIs locais. Photon/O​​SM entra somente como fallback.
+            $queryHasNumber = preg_match('/\d/', $q) === 1;
+            $hasStrongMatch = $features->contains(function (array $feature) use ($q, $queryHasNumber): bool {
+                $id = mb_strtolower((string) ($feature['id'] ?? ''));
+                $type = mb_strtolower((string) ($feature['properties']['feature_type'] ?? ''));
+                $isPoi = str_starts_with($id, 'poi.') || $type === 'poi';
+                return $this->searchRelevanceScore($feature, $q) >= 85 && ($isPoi || $queryHasNumber);
+            });
+            if (! $hasStrongMatch) {
+                $mapped = array_values(array_unique(array_merge($this->searchPhoton($q, $lat, $lng), $mapped), SORT_REGULAR));
+            }
             $outsideRadius = 0;
             $filtered = collect($mapped)
                 ->filter(function (array $result) use ($filterCenter, $radius, $maxRadiusKm, &$outsideRadius) {
@@ -153,6 +164,75 @@ class MapboxService
 
             return ['results' => [], 'filtered_count' => 0, 'mapbox_count' => 0];
         }
+    }
+
+    private function searchPhoton(string $query, ?float $lat, ?float $lng): array
+    {
+        try {
+            $params = ['q' => $query, 'limit' => 8];
+            if ($lat !== null && $lng !== null) {
+                $params['lat'] = $lat;
+                $params['lon'] = $lng;
+            }
+            $response = Http::timeout(5)->withHeaders(['User-Agent' => 'AppChama/1.0 (geocoding)'])
+                ->get('https://photon.komoot.io/api/', $params);
+            if (! $response->successful()) {
+                return [];
+            }
+            return collect($response->json('features', []))->map(function (array $feature): ?array {
+                $coordinates = $feature['geometry']['coordinates'] ?? null;
+                if (! is_array($coordinates) || count($coordinates) < 2) {
+                    return null;
+                }
+                $props = $feature['properties'] ?? [];
+                $name = trim((string) ($props['name'] ?? ''));
+                $street = trim(implode(' ', array_filter([(string) ($props['street'] ?? ''), (string) ($props['housenumber'] ?? '')])));
+                $locality = trim(implode(', ', array_filter([(string) ($props['district'] ?? ''), (string) ($props['city'] ?? ''), (string) ($props['state'] ?? ''), (string) ($props['postcode'] ?? '')])));
+                $label = trim(implode(', ', array_filter([$name, $street, $locality])));
+                if ($label === '') {
+                    return null;
+                }
+                return ['latitude' => (float) $coordinates[1], 'longitude' => (float) $coordinates[0], 'label' => $label];
+            })->filter()->values()->all();
+        } catch (\Throwable $e) {
+            Log::notice('Photon geocode fallback failed: '.$e->getMessage());
+            return [];
+        }
+    }
+
+    private function searchRelevanceScore(array $feature, string $query): int
+    {
+        $label = mb_strtolower((string) ($feature['place_name'] ?? ''));
+        $normalizedLabel = iconv('UTF-8', 'ASCII//TRANSLIT', $label) ?: $label;
+        $normalizedQuery = mb_strtolower(trim($query));
+        $normalizedQuery = iconv('UTF-8', 'ASCII//TRANSLIT', $normalizedQuery) ?: $normalizedQuery;
+        $tokens = preg_split('/\s+/', preg_replace('/[^a-z0-9]+/i', ' ', $normalizedQuery) ?: '') ?: [];
+        $tokens = array_values(array_filter($tokens, fn (string $token): bool => strlen($token) >= 3));
+        $score = 0;
+        $id = mb_strtolower((string) ($feature['id'] ?? ''));
+        $featureType = mb_strtolower((string) ($feature['properties']['feature_type'] ?? ''));
+        if (str_starts_with($id, 'poi.') || $featureType === 'poi') {
+            $score += 100;
+        } elseif (str_starts_with($id, 'address.') || $featureType === 'address') {
+            $score += 85;
+        } elseif (str_starts_with($id, 'place.') || str_starts_with($id, 'locality.')) {
+            $score -= 30;
+        }
+        foreach ($tokens as $token) {
+            if (str_contains($normalizedLabel, $token)) {
+                $score += 12;
+            }
+        }
+        if ($tokens !== [] && str_contains($normalizedLabel, implode(' ', $tokens))) {
+            $score += 35;
+        }
+        preg_match_all('/\d+/', $normalizedQuery, $queryNumbers);
+        foreach ($queryNumbers[0] as $number) {
+            if (str_contains($normalizedLabel, $number)) {
+                $score += 30;
+            }
+        }
+        return $score;
     }
 
     /**

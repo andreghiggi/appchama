@@ -11,11 +11,21 @@ class EnsureTenantScope
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // Endereço da marca (api.<marca>): a marca vem do endereço e nada a sobrescreve.
+        if (app()->bound('tenantFromHost')) {
+            $user = $request->user();
+            if ($user && $user->tenant_id && $user->tenant_id !== app('currentTenantId')) {
+                abort(403, 'Este usuário não pertence a esta marca.');
+            }
+
+            return $next($request);
+        }
+
         $tenantSlug = $request->header('X-Tenant-Slug')
             ?? $request->input('tenant_slug')
             ?? config('app.default_tenant_slug');
 
-        if ($request->user()) {
+        if ($request->user()?->tenant_id) {
             app()->instance('currentTenantId', $request->user()->tenant_id);
             return $next($request);
         }

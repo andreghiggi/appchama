@@ -20,7 +20,8 @@
       "package": "com.appchama.driver"
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "name": "Chama Motorista"
     },
     "extra": {
       "eas": {
@@ -29,7 +30,13 @@
     },
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Precisamos da sua localização para receber corridas próximas."
+        }
+      ]
     ]
   }
 }

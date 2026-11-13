@@ -8,11 +8,13 @@ use App\Filament\Resources\Cities\Pages\ListCities;
 use App\Filament\Resources\Cities\Schemas\CityForm;
 use App\Filament\Resources\Cities\Tables\CitiesTable;
 use App\Models\City;
+use App\Models\Scopes\TenantScope;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class CityResource extends Resource
 {
@@ -23,6 +25,11 @@ class CityResource extends Resource
     protected static ?string $pluralModelLabel = 'Cidades';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMapPin;
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery();
+    }
 
     public static function form(Schema $schema): Schema
     {

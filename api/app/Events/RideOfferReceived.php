@@ -16,7 +16,7 @@ class RideOfferReceived implements ShouldBroadcast
     public function __construct(
         public Ride $ride,
         public string $driverId,
-        public int $timeoutSeconds = 15,
+        public int $timeoutSeconds = 45,
     ) {}
 
     public function broadcastOn(): array
@@ -34,7 +34,7 @@ class RideOfferReceived implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'ride' => $this->ride->load(['passenger:id,name,phone,rating_avg', 'city']),
+            'ride' => $this->ride->load(['passenger:id,name,phone', 'city']),
             'timeout_seconds' => $this->timeoutSeconds,
         ];
     }

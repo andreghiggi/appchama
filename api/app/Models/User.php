@@ -24,10 +24,20 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'phone',
         'email',
+        'cpf',
         'password',
         'role',
         'status',
+        'is_platform_admin',
         'avatar_url',
+        'home_address',
+        'home_address_number',
+        'home_postal_code',
+        'home_city',
+        'home_state',
+        'home_lat',
+        'home_lng',
+        'asaas_customer_id',
     ];
 
     protected $hidden = [
@@ -39,6 +49,9 @@ class User extends Authenticatable implements FilamentUser
     {
         return [
             'password' => 'hashed',
+            'is_platform_admin' => 'boolean',
+            'home_lat' => 'decimal:7',
+            'home_lng' => 'decimal:7',
         ];
     }
 
@@ -59,7 +72,24 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->isAdmin() && $this->status === 'active';
+        if (! ($this->isAdmin() && $this->status === 'active')) {
+            return false;
+        }
+
+        // Administrador da plataforma (AppChama): entra em qualquer endereço e vê tudo.
+        if ($this->is_platform_admin) {
+            return true;
+        }
+
+        // Administrador/suporte de uma marca: só no endereço da própria marca.
+        return app()->bound('tenantFromHost')
+            && app()->bound('currentTenantId')
+            && app('currentTenantId') === $this->tenant_id;
+    }
+
+    public function isPlatformAdmin(): bool
+    {
+        return (bool) $this->is_platform_admin;
     }
 
     public function isAdmin(): bool
@@ -75,5 +105,16 @@ class User extends Authenticatable implements FilamentUser
     public function isPassenger(): bool
     {
         return $this->role === 'passenger';
+    }
+
+    public function hasPaymentProfile(): bool
+    {
+        return filled($this->cpf)
+            && filled($this->email)
+            && filled($this->home_address)
+            && filled($this->home_address_number)
+            && filled($this->home_postal_code)
+            && filled($this->home_city)
+            && filled($this->home_state);
     }
 }

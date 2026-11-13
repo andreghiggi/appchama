@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../shared/api';
+import { rideStatusLabel } from '../../../shared/labels';
 import { theme } from '../../../shared/theme';
 
 export default function HistoryScreen() {
@@ -31,7 +32,7 @@ export default function HistoryScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>{item.destination_address ?? 'Destino'}</Text>
-              <Text style={styles.cardMeta}>{item.status}</Text>
+              <Text style={styles.cardMeta}>{rideStatusLabel(item.status)}</Text>
               <Text style={styles.cardMeta}>
                 R$ {Number(item.final_fare ?? item.estimated_fare ?? 0).toFixed(2).replace('.', ',')}
               </Text>

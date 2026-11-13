@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -6,15 +6,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useScreenLayout } from '../../../shared/responsive';
 import { api } from '../../../shared/api';
-import { resolveRideCoords } from '../../../shared/coords';
-import { getPhaseSubtitle } from '../../../shared/rideMapHelpers';
+import { toLatLng, toNumber } from '../../../shared/coords';
 import DriverCard from '../../../shared/DriverCard';
-import ExpandableMapLayout from '../../../shared/ExpandableMapLayout';
 import { formatBrl } from '../../../shared/fare';
-import RideMapPanel from '../../../shared/RideMapPanel';
+import { AppMap, AppMarker, AppRoute } from '../../../shared/SimpleMap';
 import { rideStatusLabel } from '../../../shared/labels';
 import { theme } from '../../../shared/theme';
 import type { Ride } from '../../../shared/types';
@@ -27,7 +23,6 @@ type Props = {
 };
 
 export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwaitingPayment }: Props) {
-  const layout = useScreenLayout();
   const [ride, setRide] = useState(initial);
   const [loading, setLoading] = useState(false);
 
@@ -67,7 +62,7 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
     };
 
     poll();
-    timer = setInterval(poll, 1000);
+    timer = setInterval(poll, 2000);
 
     return () => {
       alive = false;
@@ -85,39 +80,80 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
     }
   };
 
-  const { usingFallback } = resolveRideCoords(ride);
+  const lat = toNumber(ride.origin_lat, -23.5505);
+  const lng = toNumber(ride.origin_lng, -46.6333);
+  const destLat = toNumber(ride.destination_lat, lat + 0.02);
+  const destLng = toNumber(ride.destination_lng, lng + 0.02);
+  const driverLoc =
+    toLatLng(ride.driver_location) ??
+    (ride.driver?.current_lat != null && ride.driver?.current_lng != null
+      ? toLatLng({ latitude: ride.driver.current_lat, longitude: ride.driver.current_lng })
+      : null);
+
+  const fitCoords = useMemo(() => {
+    const coords = [
+      { latitude: lat, longitude: lng },
+      { latitude: destLat, longitude: destLng },
+    ];
+    if (driverLoc) {
+      coords.push(driverLoc);
+    }
+    return coords;
+  }, [lat, lng, destLat, destLng, driverLoc]);
+
+  const routeCoords =
+    ride.route_coordinates && ride.route_coordinates.length >= 2
+      ? ride.route_coordinates
+      : fitCoords;
 
   const isSearching = ride.status === 'searching';
   const noDrivers = ride.status === 'no_drivers_available';
   const canceled = ride.status.startsWith('canceled');
   const finished = noDrivers || canceled;
   const hasDriver = Boolean(ride.driver?.user?.name);
-  const driverSubtitle = getPhaseSubtitle(ride, 'passenger');
+  const showDriverOnMap = hasDriver && driverLoc && ride.status !== 'searching';
+
+  const driverSubtitle =
+    ride.status === 'driver_arrived'
+      ? 'Motorista no local de embarque'
+      : ride.status === 'in_progress'
+        ? 'A caminho do destino'
+        : ride.status === 'accepted'
+          ? 'A caminho do embarque'
+          : undefined;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ExpandableMapLayout
-        defaultMapHeight={layout.activeRideMapHeight}
-        renderMap={(mapHeight, expanded) => (
-          <RideMapPanel
-            ride={ride}
-            mapHeight={mapHeight}
-            perspective="passenger"
-            style={styles.mapFill}
-            fitTrigger={expanded}
+    <View style={styles.container}>
+      <View style={styles.mapWrap}>
+        <AppMap
+          style={styles.map}
+          region={{
+            latitude: (lat + destLat) / 2,
+            longitude: (lng + destLng) / 2,
+            latitudeDelta: 0.06,
+            longitudeDelta: 0.06,
+          }}
+          fitToCoordinates={fitCoords}
+          pinMode="marker"
+        >
+          <AppMarker coordinate={{ latitude: lat, longitude: lng }} title="Embarque" variant="origin" />
+          <AppMarker
+            coordinate={{ latitude: destLat, longitude: destLng }}
+            title="Destino"
+            variant="destination"
           />
-        )}
-      >
+          {showDriverOnMap ? (
+            <AppMarker coordinate={driverLoc!} title="Motorista" variant="driver" />
+          ) : null}
+          <AppRoute coordinates={routeCoords} />
+        </AppMap>
+      </View>
+
+      <View style={styles.sheet}>
         <View style={styles.statusRow}>
           {isSearching ? <ActivityIndicator color={theme.mint} style={styles.statusSpinner} /> : null}
           <Text style={styles.statusLabel}>{rideStatusLabel(ride.status)}</Text>
         </View>
-
-        {usingFallback ? (
-          <Text style={styles.coordsWarning}>
-            Não foi possível carregar a localização exata desta corrida. O mapa pode estar impreciso.
-          </Text>
-        ) : null}
 
         {canceled ? (
           <Text style={styles.driverName}>
@@ -168,8 +204,8 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
             )}
           </Pressable>
         )}
-      </ExpandableMapLayout>
-    </SafeAreaView>
+      </View>
+    </View>
   );
 }
 
@@ -177,20 +213,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.bg,
+    minHeight: '100%' as unknown as number,
   },
-  mapFill: { flex: 1, height: '100%' },
+  mapWrap: {
+    flex: 1,
+    minHeight: 320,
+    position: 'relative',
+  },
+  map: { flex: 1, minHeight: 320 },
+  sheet: {
+    backgroundColor: theme.paper,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 20,
+    paddingBottom: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
+  },
   statusRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   statusSpinner: { marginRight: 8 },
   statusLabel: { fontSize: 13, fontWeight: '700', color: theme.mint, textTransform: 'uppercase' },
-  coordsWarning: {
-    fontSize: 12,
-    color: theme.danger,
-    backgroundColor: 'rgba(226,75,74,0.08)',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 10,
-    lineHeight: 16,
-  },
   driverName: { fontSize: 18, fontWeight: '700', color: theme.ink, marginBottom: 10 },
   addressRow: {
     flexDirection: 'row',
@@ -223,6 +267,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   addressText: { flex: 1, fontSize: 13, color: theme.textSecondary, lineHeight: 18 },
+  meta: { fontSize: 13, color: theme.textSecondary, marginBottom: 6, lineHeight: 18 },
   fare: { fontSize: 15, color: theme.textSecondary, marginTop: 4 },
   cancel: { marginTop: 18, alignItems: 'center', paddingVertical: 8 },
   cancelText: { color: theme.danger, fontWeight: '600', fontSize: 15 },

@@ -1,11 +1,9 @@
 export type MarkerVariant = 'passenger' | 'driver' | 'destination' | 'origin';
 
-export const MAPBOX_STYLE = 'mapbox://styles/mapbox/streets-v12';
-export const MAP_ROUTE_COLOR = '#1A73E8';
-export const MAP_ROUTE_SHADOW = '#1558B0';
-export const MAP_ROUTE_WIDTH = 6;
-export const MAP_LAND_COLOR = '#F2EFE9';
-export const MAP_WATER_COLOR = '#AAD3DF';
+export const MAP_ROUTE_COLOR = '#E24B4A';
+export const MAP_ROUTE_SHADOW = '#FFFFFF';
+export const MAP_LAND_COLOR = '#DDE4EA';
+export const MAP_WATER_COLOR = '#B8CDDB';
 
 /** Estilo Google Maps minimalista — usar com PROVIDER_GOOGLE (Android). */
 export const GOOGLE_UBER_MAP_STYLE = [

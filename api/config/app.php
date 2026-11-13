@@ -78,9 +78,9 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'pt_BR'),
 
-    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
+    'fallback_locale' => env('APP_FALLBACK_LOCALE', 'pt_BR'),
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
@@ -124,5 +124,7 @@ return [
     ],
 
     'default_tenant_slug' => env('DEFAULT_TENANT_SLUG', 'chama-demo'),
+
+    'geocode_max_radius_km' => (float) env('GEOCODE_MAX_RADIUS_KM', 50),
 
 ];

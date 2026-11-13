@@ -3,10 +3,8 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-na
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { isValidCoord, toLatLng, toLatLngList, toNumber, type LatLng } from './coords';
-import { useAnimatedLocation } from './useAnimatedLocation';
 import type { MarkerVariant } from './mapStyle';
-import { MAPBOX_STYLE, MAP_ROUTE_COLOR, MAP_ROUTE_SHADOW, MAP_ROUTE_WIDTH } from './mapStyle';
-import { createMarkerElement, MAPBOX_CSS, applyChamaMapTheme, setMarkerBearing } from './mapStyle.web';
+import { createMarkerElement, MAPBOX_CSS, applyChamaMapTheme, MAP_ROUTE_COLOR } from './mapStyle.web';
 import { MAPBOX_TOKEN } from './theme';
 
 type AnyLatLng = { latitude: number | string; longitude: number | string };
@@ -24,8 +22,6 @@ type Props = {
   title?: string;
   pinMode?: 'center' | 'marker';
   fitToCoordinates?: AnyLatLng[];
-  recenterToken?: number;
-  onUserMoved?: () => void;
 };
 
 const MapContext = createContext<mapboxgl.Map | null>(null);
@@ -58,8 +54,6 @@ export function AppMap({
   children,
   pinMode = 'marker',
   fitToCoordinates,
-  recenterToken = 0,
-  onUserMoved,
 }: Props) {
   const regionLat = toNumber(region.latitude);
   const regionLng = toNumber(region.longitude);
@@ -88,7 +82,7 @@ export function AppMap({
 
     const instance = new mapboxgl.Map({
       container: containerEl,
-      style: MAPBOX_STYLE,
+      style: 'mapbox://styles/mapbox/light-v11',
       center: [start.longitude, start.latitude],
       zoom: 14,
       attributionControl: true,
@@ -102,10 +96,7 @@ export function AppMap({
     // Assim que o usuário mexe no mapa paramos de reenquadrar sozinhos, senão
     // o zoom dele seria desfeito a cada atualização de posição do motorista.
     const markUserMoved = (e: { originalEvent?: unknown }) => {
-      if (e.originalEvent) {
-        userMovedRef.current = true;
-        onUserMoved?.();
-      }
+      if (e.originalEvent) userMovedRef.current = true;
     };
     instance.on('dragstart', markUserMoved);
     instance.on('zoomstart', markUserMoved);
@@ -148,11 +139,6 @@ export function AppMap({
   const fitSignature = fitPoints
     .map((p) => `${p.latitude.toFixed(4)},${p.longitude.toFixed(4)}`)
     .join('|');
-  const fitSignatureRef = useRef(fitSignature);
-
-  useEffect(() => {
-    fitSignatureRef.current = fitSignature;
-  }, [fitSignature]);
 
   useEffect(() => {
     const instance = mapRef.current;
@@ -166,12 +152,7 @@ export function AppMap({
         try {
           const bounds = new mapboxgl.LngLatBounds();
           fitPoints.forEach((p) => bounds.extend([p.longitude, p.latitude]));
-          instance.fitBounds(bounds, {
-            padding: 40,
-            animate: true,
-            maxZoom: 17,
-            minZoom: 13,
-          });
+          instance.fitBounds(bounds, { padding: 60, animate: true, maxZoom: 16 });
         } catch {
           /* bounds inválidos */
         }
@@ -194,13 +175,7 @@ export function AppMap({
     } else {
       instance.once('load', apply);
     }
-  }, [map, regionLat, regionLng, region.latitudeDelta, fitSignature, recenterToken]);
-
-  useEffect(() => {
-    if (recenterToken > 0) {
-      userMovedRef.current = false;
-    }
-  }, [recenterToken]);
+  }, [map, regionLat, regionLng, region.latitudeDelta, fitSignature]);
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -217,11 +192,9 @@ export function AppMap({
           ref={setContainerEl}
           style={{
             width: '100%',
-            maxWidth: '100%',
             height: '100%',
-            minHeight: 180,
+            minHeight: 240,
             flex: 1,
-            overflow: 'hidden',
           }}
         />
         {pinMode === 'center' ? <CenterPin /> : null}
@@ -235,41 +208,28 @@ export function AppMarker({
   coordinate,
   title,
   variant = 'passenger',
-  bearing,
-  skipAnimation = false,
-  etaMinutes,
-  etaLabel,
 }: {
   coordinate: AnyLatLng;
   title?: string;
   variant?: MarkerVariant;
-  bearing?: number;
-  skipAnimation?: boolean;
-  etaMinutes?: number;
-  etaLabel?: string;
 }) {
   const map = useContext(MapContext);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
-  const elementRef = useRef<HTMLDivElement | null>(null);
 
   const point = toLatLng(coordinate);
-  const animatedDriver = useAnimatedLocation(
-    variant === 'driver' && !skipAnimation ? point : null,
-  );
-  const displayPoint = variant === 'driver' ? (animatedDriver ?? point) : point;
+  const pointRef = useRef(point);
+  pointRef.current = point;
 
   const valid = point !== null;
 
   useEffect(() => {
-    if (!map || !displayPoint) return;
+    if (!map || !pointRef.current) return;
 
-    const el = createMarkerElement(variant, bearing, etaMinutes, etaLabel);
+    const el = createMarkerElement(variant);
     if (title) el.title = title;
-    elementRef.current = el;
 
-    const anchor = variant === 'driver' ? 'center' : 'bottom';
-    const marker = new mapboxgl.Marker({ element: el, anchor })
-      .setLngLat([displayPoint.longitude, displayPoint.latitude])
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat([pointRef.current.longitude, pointRef.current.latitude])
       .addTo(map);
 
     markerRef.current = marker;
@@ -277,19 +237,15 @@ export function AppMarker({
     return () => {
       marker.remove();
       markerRef.current = null;
-      elementRef.current = null;
     };
-  }, [map, title, variant, valid, etaMinutes, etaLabel]);
+  }, [map, title, variant, valid]);
 
+  // Reposiciona o marcador existente em vez de recriá-lo, evitando o piscar a
+  // cada atualização de localização.
   useEffect(() => {
-    if (!displayPoint) return;
-    markerRef.current?.setLngLat([displayPoint.longitude, displayPoint.latitude]);
-  }, [displayPoint?.latitude, displayPoint?.longitude]);
-
-  useEffect(() => {
-    if (variant !== 'driver' || bearing == null || !elementRef.current) return;
-    setMarkerBearing(elementRef.current, bearing);
-  }, [bearing, variant]);
+    if (!point) return;
+    markerRef.current?.setLngLat([point.longitude, point.latitude]);
+  }, [point?.latitude, point?.longitude]);
 
   return null;
 }
@@ -300,7 +256,6 @@ export function AppRoute({ coordinates }: { coordinates: AnyLatLng[] }) {
   const points = toLatLngList(coordinates);
   const pointsRef = useRef<LatLng[]>(points);
   pointsRef.current = points;
-  const lastLineRef = useRef<[number, number][]>([]);
 
   const signature = points
     .map((p) => `${p.latitude.toFixed(5)},${p.longitude.toFixed(5)}`)
@@ -315,33 +270,15 @@ export function AppRoute({ coordinates }: { coordinates: AnyLatLng[] }) {
       (p) => [p.longitude, p.latitude] as [number, number],
     );
 
-    if (lineCoords.length < 2) {
-      if (lastLineRef.current.length >= 2) {
-        pointsRef.current = lastLineRef.current.map(([lng, lat]) => ({
-          latitude: lat,
-          longitude: lng,
-        }));
-      } else {
-        return;
-      }
-    } else {
-      lastLineRef.current = lineCoords;
-    }
-
-    const activeLineCoords =
-      lineCoords.length >= 2
-        ? lineCoords
-        : lastLineRef.current;
+    if (lineCoords.length < 2) return;
 
     const geojson: GeoJSON.Feature<GeoJSON.LineString> = {
       type: 'Feature',
       properties: {},
-      geometry: { type: 'LineString', coordinates: activeLineCoords },
+      geometry: { type: 'LineString', coordinates: lineCoords },
     };
 
     const apply = () => {
-      if (!map.isStyleLoaded()) return;
-
       const source = map.getSource('chama-route') as mapboxgl.GeoJSONSource | undefined;
 
       if (source) {
@@ -355,38 +292,22 @@ export function AppRoute({ coordinates }: { coordinates: AnyLatLng[] }) {
         type: 'line',
         source: 'chama-route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': MAP_ROUTE_SHADOW,
-          'line-width': MAP_ROUTE_WIDTH + 4,
-          'line-opacity': 0.35,
-        },
+        paint: { 'line-color': '#ffffff', 'line-width': 8 },
       });
       map.addLayer({
         id: 'chama-route-line',
         type: 'line',
         source: 'chama-route',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': MAP_ROUTE_COLOR, 'line-width': MAP_ROUTE_WIDTH },
+        paint: { 'line-color': MAP_ROUTE_COLOR, 'line-width': 5 },
       });
     };
 
-    const run = () => {
-      if (!map.isStyleLoaded()) {
-        map.once('styledata', run);
-        map.once('load', run);
-        return;
-      }
+    if (map.isStyleLoaded()) {
       apply();
-    };
-
-    run();
-    map.on('styledata', apply);
-    map.on('idle', apply);
-
-    return () => {
-      map.off('styledata', apply);
-      map.off('idle', apply);
-    };
+    } else {
+      map.once('load', apply);
+    }
   }, [map, signature]);
 
   useEffect(() => {

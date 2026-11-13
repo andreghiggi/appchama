@@ -18,6 +18,10 @@ class VehicleResource extends Resource
 {
     protected static ?string $model = Vehicle::class;
 
+    protected static ?string $modelLabel = 'Veículo';
+
+    protected static ?string $pluralModelLabel = 'Veículos';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     public static function form(Schema $schema): Schema

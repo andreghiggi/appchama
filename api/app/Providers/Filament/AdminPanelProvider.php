@@ -25,10 +25,20 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::USER_MENU_BEFORE,
+                fn () => auth()->user()?->is_platform_admin ? view('filament.tenant-switcher') : '',
+            )
             ->id('admin')
             ->path('admin')
             ->login()
-            ->brandName('Chama Admin')
+            ->profile()
+            ->brandName(fn () => app()->bound('currentTenantId')
+                ? (\App\Models\Tenant::query()->whereKey(app('currentTenantId'))->value('name') ?: 'Admin').' Admin'
+                : 'AppChama Admin')
+            ->brandLogo(fn () => app()->bound('currentTenantId')
+                ? (\App\Models\Tenant::query()->whereKey(app('currentTenantId'))->value('logo_url') ?: null)
+                : null)
             ->colors([
                 'primary' => Color::hex('#FF9F1C'),
                 'danger' => Color::hex('#E24B4A'),
@@ -43,11 +53,15 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 \App\Filament\Widgets\StatsOverview::class,
                 \App\Filament\Widgets\LiveMapWidget::class,
+                \App\Filament\Widgets\OperationsOverviewWidget::class,
+                \App\Filament\Widgets\FinanceHealthWidget::class,
+                \App\Filament\Widgets\DemandHeatmapWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
+                \App\Http\Middleware\ResolveTenantContext::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
                 VerifyCsrfToken::class,

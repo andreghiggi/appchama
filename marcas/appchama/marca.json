@@ -1,0 +1,27 @@
+{
+  "slug": "appchama",
+  "nome": "AppChama",
+  "tenant_slug": "chama-demo",
+  "api_url": "https://apichama.agilizeerp.com.br",
+  "cor_primaria": "#FF9F1C",
+  "apps": {
+    "passageiro": {
+      "nome": "Chama Passageiro",
+      "pacote": "com.appchama.passenger"
+    },
+    "motorista": {
+      "nome": "Chama Motorista",
+      "pacote": "com.appchama.driver"
+    }
+  },
+  "assets": {
+    "icone": "icone.png",
+    "icone_adaptativo": "icone-adaptativo.png",
+    "splash": "splash.png"
+  },
+  "lojas": {
+    "android": false,
+    "ios": false
+  },
+  "observacoes": "Marca no 1 (app modelo). Pacotes e assets atuais serao levantados quando o codigo do app for importado. tenant_slug chama-demo e o atual."
+}

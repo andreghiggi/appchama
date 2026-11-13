@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { api, setToken } from '../../shared/api';
-import { storage } from '../../shared/storage';
-import type { User } from '../../shared/types';
+import { api, setToken } from '../../../shared/api';
+import { storage } from '../../../shared/storage';
+import type { User } from '../../../shared/types';
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
   login: (token: string, user: User) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -42,9 +43,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(nextUser);
       },
       logout: async () => {
+        try {
+          await api.goOffline();
+        } catch {
+          /* ignore */
+        }
         await storage.deleteItem('token');
         setToken(null);
         setUser(null);
+      },
+      refreshUser: async () => {
+        try {
+          const nextUser = await api.me();
+          setUser(nextUser);
+          return nextUser;
+        } catch {
+          return null;
+        }
       },
     }),
     [user, loading],

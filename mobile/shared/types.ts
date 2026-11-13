@@ -64,25 +64,12 @@ export type Ride = {
     rating_avg?: ApiNumber;
     current_lat?: ApiNumber;
     current_lng?: ApiNumber;
-    city?: {
-      id?: string;
-      departure_lat?: ApiNumber;
-      departure_lng?: ApiNumber;
-    };
   };
   city?: { id: string; name: string };
   driver_location?: { latitude: ApiNumber; longitude: ApiNumber };
   driver_distance_km?: ApiNumber;
   driver_eta_min?: ApiNumber;
   route_coordinates?: Array<{ latitude: ApiNumber; longitude: ApiNumber }>;
-  /** Rota completa embarque → destino (visão motorista). */
-  trip_route_coordinates?: Array<{ latitude: ApiNumber; longitude: ApiNumber }>;
-  route_phase?: 'to_pickup' | 'to_destination' | 'full';
-  route_target?: {
-    latitude: ApiNumber;
-    longitude: ApiNumber;
-    label?: string;
-  };
 };
 
 export type City = {
@@ -99,13 +86,6 @@ export type City = {
   rides_enabled?: boolean;
 };
 
-export type PaymentMethodOption = {
-  id: 'pix' | 'credit_card' | 'direct_driver';
-  label: string;
-  description: string;
-  requires_profile: boolean;
-};
-
 export type RidePaymentInfo = {
   ride_id: string;
   status: string;
@@ -119,7 +99,6 @@ export type RidePaymentInfo = {
     credit_card?: boolean;
     direct_driver?: boolean;
   };
-  payment_methods?: PaymentMethodOption[];
   pix_qr_code?: string | null;
   pix_copy_paste?: string | null;
   checkout_url?: string | null;
@@ -128,11 +107,6 @@ export type RidePaymentInfo = {
 export type DriverWalletInfo = {
   balance_available: number;
   total_earnings: number;
-  direct_earnings?: number;
-  app_balance_earnings?: number;
-  pending_pix_rides?: number;
-  has_processing_withdrawal?: boolean;
-  withdraw_hint?: string | null;
   payout_pix_key?: string | null;
   payout_pix_key_type?: string | null;
 };

@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Rides\Pages;
 
 use App\Filament\Resources\Rides\RideResource;
-use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListRides extends ListRecords
@@ -12,8 +11,6 @@ class ListRides extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-            CreateAction::make(),
-        ];
+        return [];
     }
 }

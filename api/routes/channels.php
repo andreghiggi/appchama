@@ -17,6 +17,14 @@ Broadcast::channel('driver.{driverId}', function (User $user, string $driverId) 
     return $user->id === $driverId && $user->isDriver();
 });
 
-Broadcast::channel('city.{cityId}.drivers', function (User $user) {
-    return $user->isAdmin();
+Broadcast::channel('city.{cityId}.drivers', function (User $user, string $cityId) {
+    if (! $user->isAdmin()) {
+        return false;
+    }
+    if ($user->is_platform_admin) {
+        return true;
+    }
+
+    return \App\Models\City::query()->withoutGlobalScopes()
+        ->where('id', $cityId)->where('tenant_id', $user->tenant_id)->exists();
 });

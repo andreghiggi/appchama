@@ -2,9 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { DestinationMapPin, DriverMapPin, OriginMapPin } from './MapPinMarkers';
 import { toLatLng, toLatLngList } from './coords';
-import { GOOGLE_UBER_MAP_STYLE, MAP_ROUTE_COLOR, MAP_ROUTE_WIDTH, type MarkerVariant } from './mapStyle';
+import { GOOGLE_UBER_MAP_STYLE, MAP_ROUTE_COLOR, MAP_ROUTE_SHADOW, type MarkerVariant } from './mapStyle';
 
 type AnyLatLng = { latitude: number | string; longitude: number | string };
 
@@ -16,18 +15,16 @@ type Props = {
   title?: string;
   pinMode?: 'center' | 'marker';
   fitToCoordinates?: AnyLatLng[];
-  recenterToken?: number;
-  onUserMoved?: () => void;
 };
 
-export function AppMap({
-  pinMode = 'marker',
-  fitToCoordinates,
-  recenterToken = 0,
-  onUserMoved,
-  children,
-  ...props
-}: Props) {
+const markerColors: Record<MarkerVariant, string> = {
+  passenger: '#111111',
+  driver: '#2563EB',
+  destination: MAP_ROUTE_COLOR,
+  origin: '#111111',
+};
+
+export function AppMap({ pinMode = 'marker', fitToCoordinates, children, ...props }: Props) {
   const useGoogleStyle = Platform.OS === 'android';
   const mapRef = useRef<MapView | null>(null);
   const userMovedRef = useRef(false);
@@ -37,12 +34,8 @@ export function AppMap({
     .map((p) => `${p.latitude.toFixed(4)},${p.longitude.toFixed(4)}`)
     .join('|');
 
-  useEffect(() => {
-    if (recenterToken > 0) {
-      userMovedRef.current = false;
-    }
-  }, [recenterToken]);
-
+  // Reenquadra apenas enquanto o usuário não tiver mexido no mapa, para não
+  // desfazer o zoom dele a cada atualização de posição.
   useEffect(() => {
     if (fitPoints.length < 2 || userMovedRef.current) return;
 
@@ -50,7 +43,7 @@ export function AppMap({
       edgePadding: { top: 60, right: 60, bottom: 60, left: 60 },
       animated: true,
     });
-  }, [fitSignature, recenterToken]);
+  }, [fitSignature]);
 
   return (
     <MapView
@@ -62,7 +55,6 @@ export function AppMap({
       showsMyLocationButton={false}
       onPanDrag={() => {
         userMovedRef.current = true;
-        onUserMoved?.();
       }}
       {...props}
     >
@@ -75,42 +67,21 @@ export function AppMarker({
   coordinate,
   title,
   variant = 'passenger',
-  bearing,
-  etaMinutes,
-  etaLabel,
 }: {
   coordinate: AnyLatLng;
   title?: string;
   variant?: MarkerVariant;
-  bearing?: number;
-  skipAnimation?: boolean;
-  etaMinutes?: number;
-  etaLabel?: string;
 }) {
   const point = toLatLng(coordinate);
 
   if (!point) return null;
 
-  if (variant === 'driver') {
-    return (
-      <Marker coordinate={point} title={title} anchor={{ x: 0.5, y: 0.5 }}>
-        <DriverMapPin />
-      </Marker>
-    );
-  }
-
-  if (variant === 'destination') {
-    return (
-      <Marker coordinate={point} title={title} anchor={{ x: 0.5, etaMinutes != null ? 1 : 0.5 }}>
-        <DestinationMapPin etaMinutes={etaMinutes} label={etaLabel} />
-      </Marker>
-    );
-  }
-
   return (
-    <Marker coordinate={point} title={title} anchor={{ x: 0.5, y: 0.5 }}>
-      <OriginMapPin />
-    </Marker>
+    <Marker
+      coordinate={point}
+      title={title}
+      pinColor={markerColors[variant]}
+    />
   );
 }
 
@@ -119,5 +90,10 @@ export function AppRoute({ coordinates }: { coordinates: AnyLatLng[] }) {
 
   if (points.length < 2) return null;
 
-  return <Polyline coordinates={points} strokeColor={MAP_ROUTE_COLOR} strokeWidth={MAP_ROUTE_WIDTH} />;
+  return (
+    <>
+      <Polyline coordinates={points} strokeColor={MAP_ROUTE_SHADOW} strokeWidth={8} />
+      <Polyline coordinates={points} strokeColor={MAP_ROUTE_COLOR} strokeWidth={5} />
+    </>
+  );
 }
