@@ -160,7 +160,7 @@ class DriverWalletService
             DriverWalletTransaction::query()->create([
                 'driver_id' => $driver->user_id, 'type' => 'commission_debit', 'amount' => -$fee,
                 'balance_after' => $wallet->balance_available, 'prepaid_balance_after' => $wallet->prepaid_balance,
-                'ride_id' => $ride->id, 'description' => 'Comissão Chama de 15% corrida #'.substr($ride->id, 0, 8), 'created_at' => now(),
+                'ride_id' => $ride->id, 'description' => 'Comissão '.($ride->tenant?->name ?: 'da plataforma').' de '.rtrim(rtrim(number_format((float) ($ride->tenant?->platform_commission_pct ?? 15), 2, '.', ''), '0'), '.').'% corrida #'.substr($ride->id, 0, 8), 'created_at' => now(),
             ]);
             return $wallet->fresh();
         });

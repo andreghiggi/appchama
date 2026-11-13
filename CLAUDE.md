@@ -23,4 +23,6 @@ Este repositório é a **fonte da verdade** do AppChama (marca modelo) e das mar
 - Não alterar DNS de domínio de cliente nem emitir nota fiscal sem confirmação do dono. Este projeto não tem relação com o Emit Smart; não misturar.
 - Arquivos novos ou editados em Windows: manter quebra de linha **LF** (o repositório usa LF).
 - Pacotes Android (`com.vaide55.*`) são permanentes depois de publicados; não mudar.
-- Falar com o dono em português simples, sem jargão; explicar o que foi feito e o que falta.
+- **Responder ao dono SEMPRE em português do Brasil**, inclusive avisos curtos entre etapas e descrições de comandos; linguagem simples, sem jargão; explicar o que foi feito e o que falta.
+- Antes de publicar o backend: `bash scripts/rodar-verificacoes.sh` (na VPS) tem de terminar com "TUDO OK".
+- Endereços, logins, apps, Expo, servidor, testes e pendências: `docs/ACESSOS-E-URLS.md` (sem senhas; diz onde cada segredo fica).

@@ -31,7 +31,7 @@ class AsaasPaymentService
             'billingType' => 'PIX',
             'value' => $amount,
             'dueDate' => $dueDate,
-            'description' => 'Corrida Chama #'.substr($ride->id, 0, 8),
+            'description' => 'Corrida '.($tenant->name ?: 'plataforma').' #'.substr($ride->id, 0, 8),
             'externalReference' => $ride->id,
         ], $tenant);
 
@@ -83,7 +83,7 @@ class AsaasPaymentService
             ],
             'items' => [
                 [
-                    'name' => 'Corrida Chama',
+                    'name' => 'Corrida '.($tenant->name ?: 'plataforma'),
                     'description' => 'Pagamento corrida #'.substr($ride->id, 0, 8),
                     'quantity' => 1,
                     'value' => $amount,
