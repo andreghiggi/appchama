@@ -28,6 +28,8 @@ class DriverSelfRegistrationService
             ->where('tenant_id', $tenant->id)
             ->findOrFail($data['city_id']);
 
+        abort_unless($city->acceptsDriverSignup(), 422, 'O cadastro de motoristas não está aberto nesta cidade.');
+
         $path = $cnhDocument->store('driver-cnh/'.$tenant->id, 'local');
 
         return DB::transaction(function () use ($data, $tenant, $city, $path): User {
