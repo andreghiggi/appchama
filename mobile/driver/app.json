@@ -36,6 +36,14 @@
         {
           "locationWhenInUsePermission": "Precisamos da sua localização para receber corridas próximas."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
       ]
     ]
   }
