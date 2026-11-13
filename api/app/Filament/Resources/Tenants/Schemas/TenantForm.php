@@ -26,11 +26,36 @@ class TenantForm
                         ->helperText('Só letras minúsculas, números e hífen. Ex.: vaide55')
                         ->unique('tenants', 'slug', ignoreRecord: true)
                         ->disabledOn('edit'),
+                    TextInput::make('tagline')->label('Lema (slogan)')->maxLength(160)->columnSpanFull(),
                     ColorPicker::make('primary_color')->label('Cor principal')->default('#FF9F1C'),
                     TextInput::make('logo_url')->label('Endereço da logo (URL)')->url()->maxLength(255),
                     Select::make('status')->label('Situação')
                         ->options(['active' => 'Ativa', 'suspended' => 'Suspensa'])
                         ->default('active')->required(),
+                ])->columns(2),
+            Section::make('Cores do app')
+                ->description('A cor principal acima é o destaque (botões). Aqui ficam o fundo escuro e o texto sobre o destaque. Vazio = padrão do AppChama.')
+                ->schema([
+                    ColorPicker::make('theme.ink')->label('Fundo escuro'),
+                    ColorPicker::make('theme.ink2')->label('Fundo escuro 2 (cartões)'),
+                    ColorPicker::make('theme.amberDark')->label('Destaque escuro (pressionado)'),
+                    ColorPicker::make('theme.onAmber')->label('Texto sobre o destaque'),
+                ])->columns(4),
+            Section::make('Contatos e textos legais')
+                ->description('Aparecem no app (suporte, política de privacidade, termos e exclusão de conta). Exigidos pelas lojas.')
+                ->schema([
+                    TextInput::make('contacts.whatsapp')->label('WhatsApp (com DDD)')->maxLength(30),
+                    TextInput::make('contacts.email')->label('E-mail de suporte')->email()->maxLength(120),
+                    TextInput::make('contacts.phone')->label('Telefone')->maxLength(30),
+                    TextInput::make('contacts.site')->label('Site')->url()->maxLength(255),
+                    TextInput::make('legal.privacy_url')->label('Política de privacidade (URL)')->url()->maxLength(255),
+                    TextInput::make('legal.terms_url')->label('Termos de uso (URL)')->url()->maxLength(255),
+                    TextInput::make('legal.delete_account_url')->label('Exclusão de conta (URL)')->url()->maxLength(255),
+                ])->columns(3),
+            Section::make('Recursos do app')
+                ->schema([
+                    Toggle::make('features.driver_wallet')->label('Carteira do motorista')->default(true),
+                    Toggle::make('features.ratings')->label('Avaliações')->default(true),
                 ])->columns(2),
             Section::make('Endereços da marca')
                 ->description('O endereço decide qual marca atende a requisição. Cada endereço só pode pertencer a uma marca.')
