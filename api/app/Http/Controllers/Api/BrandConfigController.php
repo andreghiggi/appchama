@@ -18,6 +18,8 @@ class BrandConfigController extends Controller
         }
 
         return response()->json(["data" => $tenant->brandConfig()])
-            ->header("Cache-Control", "public, max-age=300");
+            ->header("Cache-Control", "public, max-age=300")
+            // a resposta muda conforme a marca (endereco ou cabecalho): caches nao podem misturar marcas
+            ->header("Vary", "X-Tenant-Slug, Origin");
     }
 }

@@ -192,7 +192,7 @@ class ManagePaymentSettings extends Page
                         ->default('sandbox')
                         ->helperText('Sandbox usa api-sandbox.asaas.com — a chave precisa ser do mesmo ambiente.'),
                     TextInput::make('asaas_webhook_token')
-                        ->label('Token do webhook (App Chama)')
+                        ->label('Token do webhook')
                         ->maxLength(64)
                         ->helperText('Deixe em branco para gerar automaticamente. Não cole a API Key aqui.'),
                 ])

@@ -16,7 +16,7 @@ class AsaasTransferService
             'operationType' => 'PIX',
             'pixAddressKey' => $withdrawal->pix_key,
             'pixAddressKeyType' => strtoupper($withdrawal->pix_key_type),
-            'description' => 'Saque motorista Chama',
+            'description' => 'Saque motorista '.($tenant->name ?: 'plataforma'),
             'externalReference' => $withdrawal->id,
         ];
 

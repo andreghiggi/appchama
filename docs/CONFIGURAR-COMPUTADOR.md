@@ -29,7 +29,10 @@ Use este checklist quando o repositório for baixado num computador novo (ou par
 - Chaves: Google Maps, Asaas, Mapbox, SMS; chaves de assinatura do app.
 - Senhas e tokens em geral.
 
-## 6. Conferência final
+## 6. Ler antes de começar
+- [ ] `docs/ACESSOS-E-URLS.md`: endereços, logins, apps, Expo, servidor, testes e o que falta fazer.
+
+## 7. Conferência final
 - [ ] `git status` limpo e `git log -1` igual ao da `main` do GitHub.
 - [ ] `vps-site tarefa lista` mostra as tarefas `VAIDE55 ...`.
 - [ ] Registrar no servidor: `vps-site log --quem NOME "computador configurado"`.

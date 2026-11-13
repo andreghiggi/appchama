@@ -38,7 +38,7 @@ class AsaasWebhookSetupService
         ];
 
         $payload = [
-            'name' => 'AppChama',
+            'name' => $tenant->name ?: 'AppChama',
             'url' => $url,
             'email' => config('mail.from.address', 'admin@chama.app'),
             'enabled' => true,

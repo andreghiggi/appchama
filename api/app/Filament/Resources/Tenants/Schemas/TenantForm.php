@@ -28,7 +28,11 @@ class TenantForm
                         ->disabledOn('edit'),
                     TextInput::make('tagline')->label('Lema (slogan)')->maxLength(160)->columnSpanFull(),
                     ColorPicker::make('primary_color')->label('Cor principal')->default('#FF9F1C'),
-                    TextInput::make('logo_url')->label('Endereço da logo (URL)')->url()->maxLength(255),
+                    TextInput::make('logo_url')->label('Endereço da logo')
+                        ->regex('#^(https?://|/)\S+$#i')
+                        ->helperText('Endereço completo (https://...) ou caminho no servidor, ex.: /brands/vaide55/logo.png')
+                        ->validationMessages(['regex' => 'Use um endereço completo (https://...) ou um caminho que comece com /.'])
+                        ->maxLength(255),
                     Select::make('status')->label('Situação')
                         ->options(['active' => 'Ativa', 'suspended' => 'Suspensa'])
                         ->default('active')->required(),
