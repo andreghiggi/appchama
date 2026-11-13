@@ -47,5 +47,9 @@
     "privacidade": null,
     "termos": null,
     "exclusao_conta": null
+  },
+  "cidade_padrao": {
+    "cidade": "",
+    "uf": ""
   }
 }

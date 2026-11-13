@@ -1,0 +1,33 @@
+{
+  "cli": { "version": ">= 12.0.0", "appVersionSource": "local" },
+  "build": {
+    "base": {
+      "channel": "producao"
+    },
+    "vaide55": {
+      "extends": "base",
+      "env": { "MARCA": "vaide55" },
+      "android": { "buildType": "app-bundle" }
+    },
+    "vaide55-teste": {
+      "extends": "base",
+      "distribution": "internal",
+      "env": { "MARCA": "vaide55" },
+      "android": { "buildType": "apk" }
+    },
+    "appchama": {
+      "extends": "base",
+      "env": { "MARCA": "appchama" },
+      "android": { "buildType": "app-bundle" }
+    },
+    "appchama-teste": {
+      "extends": "base",
+      "distribution": "internal",
+      "env": { "MARCA": "appchama" },
+      "android": { "buildType": "apk" }
+    }
+  },
+  "submit": {
+    "producao": { "android": { "track": "internal" } }
+  }
+}

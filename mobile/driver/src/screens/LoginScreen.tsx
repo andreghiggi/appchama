@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { api } from '../../../shared/api';
 import { storage } from '../../../shared/storage';
-import { theme } from '../../../shared/theme';
+import { APP_NAME, theme } from '../../../shared/theme';
+import { BrandFooter, BrandHeader } from '../../../shared/BrandHeader';
 import { useAuth } from '../context/AuthContext';
 import {
   DRIVER_STORAGE_KEYS,
@@ -85,7 +86,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Chama Motorista</Text>
+      <BrandHeader title={APP_NAME} dark />
       <Text style={styles.subtitle}>
         {loginMode === 'password'
           ? 'Entre com telefone e senha definidos no seu cadastro pelo app.'
@@ -154,6 +155,7 @@ export default function LoginScreen() {
       </Pressable>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      <BrandFooter dark />
     </View>
   );
 }

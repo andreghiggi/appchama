@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { LogoutButton } from '../components/LogoutButton';
 import { api } from '../../../shared/api';
-import { theme } from '../../../shared/theme';
+import { BRAND_NAME, theme } from '../../../shared/theme';
 import { useAuth } from '../context/AuthContext';
 
 export default function RegistrationCodeScreen() {
@@ -41,7 +41,7 @@ export default function RegistrationCodeScreen() {
       <Text style={styles.title}>Código de cadastro</Text>
       <Text style={styles.text}>
         Olá, {user?.name?.split(' ')[0] ?? 'motorista'}. Guarde o código abaixo e informe à equipe
-        Chama para liberar seu acesso.
+        {BRAND_NAME} para liberar seu acesso.
       </Text>
 
       <View style={styles.codeBox}>
