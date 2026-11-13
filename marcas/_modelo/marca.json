@@ -1,0 +1,14 @@
+{
+  "slug": "apelido-da-marca",
+  "nome": "Nome da Marca",
+  "tenant_slug": "apelido-da-marca",
+  "api_url": "https://api.marca.com.br",
+  "cor_primaria": "#000000",
+  "apps": {
+    "passageiro": { "nome": "Marca Passageiro", "pacote": "com.marca.passageiro" },
+    "motorista": { "nome": "Marca Motorista", "pacote": "com.marca.motorista" }
+  },
+  "assets": { "icone": "icone.png", "icone_adaptativo": "icone-adaptativo.png", "splash": "splash.png" },
+  "lojas": { "android": true, "ios": false },
+  "observacoes": ""
+}

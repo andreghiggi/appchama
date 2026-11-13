@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SubscriptionPayment extends Model
 {
+    use \App\Models\Concerns\BelongsToTenant;
     use HasUuids;
 
     protected $fillable = [
@@ -29,5 +30,10 @@ class SubscriptionPayment extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class);
+    }
+
+    public function tenantIdFromParent(): ?string
+    {
+        return \App\Models\Subscription::withoutGlobalScopes()->whereKey($this->subscription_id)->value('tenant_id');
     }
 }

@@ -1,0 +1,14 @@
+{
+  "slug": "vaide55",
+  "nome": "Vaide55",
+  "tenant_slug": "vaide55",
+  "api_url": "https://api.vaide55.com.br",
+  "cor_primaria": "#FF6B35",
+  "apps": {
+    "passageiro": { "nome": "Vaide55 Passageiro", "pacote": "com.vaide55.passageiro" },
+    "motorista": { "nome": "Vaide55 Motorista", "pacote": "com.vaide55.motorista" }
+  },
+  "assets": { "icone": "icone.png", "icone_adaptativo": "icone-adaptativo.png", "splash": "splash.png" },
+  "lojas": { "android": true, "ios": false },
+  "observacoes": "Identificadores propostos, a confirmar pelo dono (permanentes depois de publicar). Cor provisoria. Logo e icone pendentes do dono."
+}

@@ -25,7 +25,6 @@ class LiveMapWidget extends Widget
     protected function getViewData(): array
     {
         $city = City::query()
-            ->withoutGlobalScope(TenantScope::class)
             ->where('active', true)
             ->whereNotNull('departure_lat')
             ->orderBy('name')
@@ -50,7 +49,6 @@ class LiveMapWidget extends Widget
     private function buildActiveTrips(float $centerLat, float $centerLng): array
     {
         $rides = Ride::query()
-            ->withoutGlobalScope(TenantScope::class)
             ->with(['passenger:id,name', 'driver.user:id,name', 'driver.city:id,name,departure_lat,departure_lng'])
             ->whereIn('status', ['accepted', 'driver_arrived', 'in_progress'])
             ->whereNotNull('driver_id')

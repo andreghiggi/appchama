@@ -24,3 +24,22 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# execucao / segredos
+/vendor
+/node_modules
+/.env
+/.env.*
+!.env.example
+/storage/*.key
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+!/storage/**/.gitkeep
+/bootstrap/cache/*
+!/bootstrap/cache/.gitkeep
+/public/build
+/public/storage
+.phpunit.result.cache
+*.bak*

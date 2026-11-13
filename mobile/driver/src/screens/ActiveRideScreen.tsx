@@ -1,26 +1,21 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useScreenLayout } from '../../../shared/responsive';
 import { api } from '../../../shared/api';
-import { resolveRideCoords } from '../../../shared/coords';
+import { toNumber } from '../../../shared/coords';
 import { formatBrl } from '../../../shared/fare';
 import { requestCurrentLocation, startLocationWatch } from '../../../shared/location';
-import ExpandableMapLayout from '../../../shared/ExpandableMapLayout';
-import RideMapPanel from '../../../shared/RideMapPanel';
-import TripDetailsCard from '../../../shared/TripDetailsCard';
+import { AppMap, AppMarker, AppRoute } from '../../../shared/SimpleMap';
 import { rideStatusLabel } from '../../../shared/labels';
 import { theme } from '../../../shared/theme';
-import { dismissRideSession } from '../../../shared/rideSession';
 import type { Ride } from '../../../shared/types';
 
 type Props = {
@@ -29,7 +24,6 @@ type Props = {
 };
 
 export default function ActiveRideScreen({ rideId, onDone }: Props) {
-  const layout = useScreenLayout();
   const [ride, setRide] = useState<Ride | null>(null);
   const [loading, setLoading] = useState(false);
   const [myLocation, setMyLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -38,10 +32,6 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
   const [confirmingDirect, setConfirmingDirect] = useState(false);
   const [canceled, setCanceled] = useState(false);
   const stopWatchRef = useRef<(() => void) | null>(null);
-  const paymentModalDismissedRef = useRef(false);
-  const confirmingPaidRef = useRef(false);
-  const onDoneRef = useRef(onDone);
-  onDoneRef.current = onDone;
 
   useEffect(() => {
     let alive = true;
@@ -52,20 +42,10 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
         const next = await api.getRide(rideId);
         if (!alive) return;
         setRide(next);
-
-        if (next.status === 'completed' && next.payment_status === 'paid') {
-          if (timer) clearInterval(timer);
-          onDoneRef.current();
-          return;
-        }
-
         if (next.status === 'awaiting_payment') {
+          setAwaitingPayment(true);
           setCompletedFare(Number(next.driver_net_amount ?? next.final_fare ?? 0));
-          if (!paymentModalDismissedRef.current && !confirmingPaidRef.current) {
-            setAwaitingPayment(true);
-          }
         }
-
         if (next.status.startsWith('canceled') && timer) {
           setCanceled(true);
           clearInterval(timer);
@@ -106,7 +86,24 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
     };
   }, []);
 
-  const { usingFallback } = resolveRideCoords(ride ?? {});
+  const lat = toNumber(ride?.origin_lat, -23.5505);
+  const lng = toNumber(ride?.origin_lng, -46.6333);
+  const destLat = toNumber(ride?.destination_lat, lat + 0.02);
+  const destLng = toNumber(ride?.destination_lng, lng + 0.02);
+
+  const fitCoords = useMemo(() => {
+    const coords = [
+      { latitude: lat, longitude: lng },
+      { latitude: destLat, longitude: destLng },
+    ];
+    if (myLocation) coords.push(myLocation);
+    return coords;
+  }, [lat, lng, destLat, destLng, myLocation]);
+
+  const routeCoords =
+    ride?.route_coordinates && ride.route_coordinates.length >= 2
+      ? ride.route_coordinates
+      : fitCoords;
 
   const cancelRide = async () => {
     setLoading(true);
@@ -128,7 +125,6 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
       } else if (ride?.status === 'in_progress') {
         const completed = await api.completeRide(rideId);
         setRide(completed);
-        paymentModalDismissedRef.current = false;
         setAwaitingPayment(true);
         setCompletedFare(Number(completed.driver_net_amount ?? completed.final_fare ?? 0));
       }
@@ -138,37 +134,13 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
   };
 
   const confirmDirect = async () => {
-    if (ride?.payment_method !== 'direct_driver') {
-      Alert.alert(
-        'Pagamento pelo app',
-        'O passageiro pagará via Pix ou cartão no app. Aguarde a confirmação automática.',
-      );
-      return;
-    }
-
-    confirmingPaidRef.current = true;
     setConfirmingDirect(true);
     try {
-      const updated = await api.confirmDirectPayment(rideId);
-      setRide(updated);
-
-      if (updated.payment_status === 'paid' || updated.status === 'completed') {
-        setAwaitingPayment(false);
-        onDone();
-        return;
-      }
-
-      const refreshed = await api.getRide(rideId);
-      setRide(refreshed);
-      if (refreshed.payment_status === 'paid' || refreshed.status === 'completed') {
-        setAwaitingPayment(false);
-        onDone();
-      } else {
-        Alert.alert('Aguardando', 'Pagamento ainda não confirmado. Tente novamente em instantes.');
-        confirmingPaidRef.current = false;
-      }
+      await api.confirmDirectPayment(rideId);
+      Alert.alert('Confirmado', 'Pagamento registrado.');
+      setAwaitingPayment(false);
+      onDone();
     } catch (e: unknown) {
-      confirmingPaidRef.current = false;
       Alert.alert('Erro', e instanceof Error ? e.message : 'Falha ao confirmar');
     } finally {
       setConfirmingDirect(false);
@@ -183,6 +155,11 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
     );
   }
 
+  const navTarget =
+    ride.status === 'in_progress'
+      ? { latitude: destLat, longitude: destLng, label: 'Destino' }
+      : { latitude: lat, longitude: lng, label: 'Embarque' };
+
   const label =
     ride.status === 'accepted'
       ? 'Cheguei no embarque'
@@ -192,93 +169,79 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
           ? 'Finalizar corrida'
           : 'Aguardando';
 
-  const showDirectConfirm = ride.payment_method === 'direct_driver';
-  const waitingAppPayment =
-    ride.status === 'awaiting_payment' && ride.payment_method !== 'direct_driver';
-
-  const Root = Platform.OS === 'web' ? View : SafeAreaView;
-  const rootProps =
-    Platform.OS === 'web' ? {} : ({ edges: ['top'] as const } satisfies { edges: ('top')[] });
+  const openExternalNav = () => {
+    Linking.openURL(
+      `https://www.google.com/maps/dir/?api=1&destination=${navTarget.latitude},${navTarget.longitude}`,
+    );
+  };
 
   return (
-    <Root style={styles.container} {...rootProps}>
-      <View style={styles.fill}>
-        <ExpandableMapLayout
-          defaultMapHeight={layout.activeRideMapHeight}
-          renderMap={(mapHeight, expanded) => (
-            <RideMapPanel
-              ride={ride}
-              driverLocation={myLocation}
-              mapHeight={mapHeight}
-              perspective="driver"
-              style={styles.mapFill}
-              fitTrigger={expanded}
-            />
-          )}
+    <View style={styles.container}>
+      <View style={styles.mapWrap}>
+        <AppMap
+          style={styles.map}
+          region={{
+            latitude: (lat + destLat) / 2,
+            longitude: (lng + destLng) / 2,
+            latitudeDelta: 0.06,
+            longitudeDelta: 0.06,
+          }}
+          fitToCoordinates={fitCoords}
+          pinMode="marker"
         >
-          <Text style={styles.title}>Corrida ativa</Text>
-          <Text style={styles.meta}>Status: {rideStatusLabel(ride.status)}</Text>
-          <Text style={styles.meta}>Passageiro: {ride.passenger?.name ?? '—'}</Text>
-
-          {usingFallback ? (
-            <Text style={styles.coordsWarning}>
-              Localização da corrida indisponível. O mapa pode estar impreciso.
-            </Text>
+          <AppMarker coordinate={{ latitude: lat, longitude: lng }} title="Embarque" variant="origin" />
+          <AppMarker
+            coordinate={{ latitude: destLat, longitude: destLng }}
+            title="Destino"
+            variant="destination"
+          />
+          {myLocation ? (
+            <AppMarker coordinate={myLocation} title="Você" variant="driver" />
           ) : null}
+          <AppRoute coordinates={routeCoords} />
+        </AppMap>
+      </View>
 
-          {['accepted', 'driver_arrived', 'in_progress'].includes(ride.status) ? (
-            <TripDetailsCard ride={ride} perspective="driver" />
-          ) : null}
+      <View style={styles.sheet}>
+        <Text style={styles.title}>Corrida ativa</Text>
+        <Text style={styles.meta}>Status: {rideStatusLabel(ride.status)}</Text>
+        <Text style={styles.meta}>Passageiro: {ride.passenger?.name ?? '—'}</Text>
 
-          {ride.status === 'awaiting_payment' && (
-            <>
-              {waitingAppPayment ? (
-                <Text style={styles.meta}>
-                  Aguardando pagamento do passageiro via app (Pix/cartão).
-                </Text>
-              ) : (
-                <Text style={styles.meta}>Aguardando confirmação do pagamento direto.</Text>
-              )}
-
-              {showDirectConfirm ? (
-                <Pressable style={styles.button} onPress={confirmDirect} disabled={confirmingDirect}>
-                  {confirmingDirect ? (
-                    <ActivityIndicator color={theme.ink} />
-                  ) : (
-                    <Text style={styles.buttonText}>Confirmar recebimento</Text>
-                  )}
-                </Pressable>
-              ) : null}
-
-              <Pressable
-                style={styles.navLink}
-                onPress={() => {
-                  dismissRideSession(rideId);
-                  paymentModalDismissedRef.current = true;
-                  onDone();
-                }}
-              >
-                <Text style={styles.navLinkText}>Voltar ao painel</Text>
-              </Pressable>
-            </>
-          )}
-
-          {['accepted', 'driver_arrived', 'in_progress'].includes(ride.status) && (
-            <Pressable style={styles.button} onPress={nextAction} disabled={loading}>
-              {loading ? (
+        {ride.status === 'awaiting_payment' && (
+          <>
+            <Text style={styles.meta}>Aguardando pagamento do passageiro.</Text>
+            <Pressable style={styles.button} onPress={confirmDirect} disabled={confirmingDirect}>
+              {confirmingDirect ? (
                 <ActivityIndicator color={theme.ink} />
               ) : (
-                <Text style={styles.buttonText}>{label}</Text>
+                <Text style={styles.buttonText}>Confirmar recebimento (direto)</Text>
               )}
             </Pressable>
-          )}
-
-          {['accepted', 'driver_arrived'].includes(ride.status) && (
-            <Pressable style={styles.cancel} onPress={cancelRide} disabled={loading}>
-              <Text style={styles.cancelText}>Cancelar corrida</Text>
+            <Pressable style={styles.navLink} onPress={onDone}>
+              <Text style={styles.navLinkText}>Voltar ao painel</Text>
             </Pressable>
-          )}
-        </ExpandableMapLayout>
+          </>
+        )}
+
+        {['accepted', 'driver_arrived', 'in_progress'].includes(ride.status) && (
+          <Pressable style={styles.button} onPress={nextAction} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color={theme.ink} />
+            ) : (
+              <Text style={styles.buttonText}>{label}</Text>
+            )}
+          </Pressable>
+        )}
+
+        <Pressable style={styles.navLink} onPress={openExternalNav}>
+          <Text style={styles.navLinkText}>Abrir no GPS externo ({navTarget.label})</Text>
+        </Pressable>
+
+        {['accepted', 'driver_arrived'].includes(ride.status) && (
+          <Pressable style={styles.cancel} onPress={cancelRide} disabled={loading}>
+            <Text style={styles.cancelText}>Cancelar corrida</Text>
+          </Pressable>
+        )}
       </View>
 
       <Modal visible={canceled} transparent animationType="fade">
@@ -297,31 +260,26 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
         </View>
       </Modal>
 
-      <Modal visible={awaitingPayment && completedFare != null && !paymentModalDismissedRef.current} transparent animationType="fade">
+      <Modal visible={awaitingPayment && completedFare != null} transparent animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Aguardando pagamento</Text>
             <Text style={styles.modalFare}>Valor líquido: {formatBrl(completedFare ?? 0)}</Text>
             <Text style={styles.meta}>
-              {showDirectConfirm
-                ? 'Confirme quando receber o pagamento direto do passageiro.'
-                : 'O passageiro pagará via app (Pix/cartão). Esta tela atualiza automaticamente.'}
+              O passageiro paga pelo app (Pix/cartão) ou confirme se recebeu pagamento direto.
             </Text>
-            {showDirectConfirm ? (
-              <Pressable style={styles.button} onPress={confirmDirect} disabled={confirmingDirect}>
-                {confirmingDirect ? (
-                  <ActivityIndicator color={theme.ink} />
-                ) : (
-                  <Text style={styles.buttonText}>Confirmar recebimento</Text>
-                )}
-              </Pressable>
-            ) : null}
+            <Pressable style={styles.button} onPress={confirmDirect} disabled={confirmingDirect}>
+              {confirmingDirect ? (
+                <ActivityIndicator color={theme.ink} />
+              ) : (
+                <Text style={styles.buttonText}>Confirmar recebimento (direto)</Text>
+              )}
+            </Pressable>
             <Pressable
               style={styles.navLink}
               onPress={() => {
-                paymentModalDismissedRef.current = true;
                 setAwaitingPayment(false);
-                dismissRideSession(rideId);
+                setCompletedFare(null);
                 onDone();
               }}
             >
@@ -330,7 +288,7 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
           </View>
         </View>
       </Modal>
-    </Root>
+    </View>
   );
 }
 
@@ -339,23 +297,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.bg,
-    width: '100%',
-    maxWidth: '100%',
-    overflow: 'hidden',
+    minHeight: '100%' as unknown as number,
   },
-  fill: { flex: 1, width: '100%', maxWidth: '100%', overflow: 'hidden' },
-  mapFill: { flex: 1, height: '100%' },
+  mapWrap: { flex: 1, minHeight: 320 },
+  map: { flex: 1, minHeight: 320 },
+  sheet: {
+    backgroundColor: theme.paper,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 20,
+    paddingBottom: 24,
+  },
   title: { fontSize: 20, fontWeight: '700', color: theme.ink, marginBottom: 6 },
   meta: { marginTop: 4, color: theme.textSecondary, fontSize: 14 },
-  coordsWarning: {
-    marginTop: 8,
-    fontSize: 12,
-    color: theme.danger,
-    backgroundColor: 'rgba(226,75,74,0.08)',
-    padding: 10,
-    borderRadius: 8,
-    lineHeight: 16,
-  },
   button: {
     marginTop: 16,
     backgroundColor: theme.amber,

@@ -32,6 +32,11 @@ class Ride extends Model
         'started_at',
         'completed_at',
         'canceled_reason',
+        'payment_status',
+        'payment_method',
+        'paid_at',
+        'platform_fee_amount',
+        'driver_net_amount',
     ];
 
     protected function casts(): array
@@ -48,6 +53,9 @@ class Ride extends Model
             'accepted_at' => 'datetime',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'paid_at' => 'datetime',
+            'platform_fee_amount' => 'decimal:2',
+            'driver_net_amount' => 'decimal:2',
         ];
     }
 
@@ -81,10 +89,20 @@ class Ride extends Model
         return $this->hasMany(Rating::class);
     }
 
+    public function payments(): HasMany
+    {
+        return $this->hasMany(RidePayment::class);
+    }
+
     public function isActive(): bool
     {
         return in_array($this->status, [
-            'requested', 'searching', 'accepted', 'driver_arrived', 'in_progress',
+            'requested', 'searching', 'accepted', 'driver_arrived', 'in_progress', 'awaiting_payment',
         ], true);
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->payment_status === 'paid';
     }
 }

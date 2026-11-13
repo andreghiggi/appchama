@@ -68,8 +68,48 @@ class RideTrackingService
                 ->first();
 
         if (! $driver) {
-            $tracking['route_coordinates'] = $this->ensureRouteCoordinates(
-                [],
+            if ($ride->status === 'accepted') {
+                $tracking['route_phase'] = 'to_pickup';
+                $tracking['route_target'] = [
+                    'latitude' => $originLat,
+                    'longitude' => $originLng,
+                    'label' => 'Embarque',
+                ];
+
+                $cityLat = $ride->city?->departure_lat;
+                $cityLng = $ride->city?->departure_lng;
+                if ($cityLat !== null && $cityLng !== null) {
+                    $fromLat = (float) $cityLat;
+                    $fromLng = (float) $cityLng;
+                } else {
+                    $fromLat = $originLat;
+                    $fromLng = $originLng;
+                }
+
+                $route = $this->mapbox->directions($fromLat, $fromLng, $originLat, $originLng);
+                $tracking['driver_location'] = [
+                    'latitude' => $fromLat,
+                    'longitude' => $fromLng,
+                ];
+                $tracking['route_coordinates'] = $this->ensureRouteCoordinates(
+                    $route['coordinates'] ?? [],
+                    $fromLat,
+                    $fromLng,
+                    $originLat,
+                    $originLng,
+                );
+            } else {
+                $tracking['route_coordinates'] = $this->ensureRouteCoordinates(
+                    [],
+                    $originLat,
+                    $originLng,
+                    $destLat,
+                    $destLng,
+                );
+            }
+
+            $tracking['trip_route_coordinates'] = $this->ensureRouteCoordinates(
+                $this->originDestinationRoute($ride),
                 $originLat,
                 $originLng,
                 $destLat,
@@ -253,6 +293,8 @@ class RideTrackingService
     {
         $ride->loadMissing([
             'passenger:id,name,phone',
+            'tenant:id,platform_commission_pct',
+            'driver:user_id,city_id,current_lat,current_lng,is_female_driver,online,rating_avg',
             'driver.user:id,name,phone',
             'driver.vehicles',
             'driver.city:id,departure_lat,departure_lng',
@@ -260,7 +302,12 @@ class RideTrackingService
             'ratings',
         ]);
         $driver->loadMissing('city:id,departure_lat,departure_lng');
-
+        // A oferta deve mostrar ao motorista o líquido antes de aceitar.
+        // O tenant do Chama está configurado com 15% de comissão; fallback 15.
+        $grossFare = (float) ($ride->estimated_fare ?? $ride->final_fare ?? 0);
+        $commissionPct = (float) ($ride->tenant?->platform_commission_pct ?? 15);
+        $ride->setAttribute('gross_fare', round($grossFare, 2));
+        $ride->setAttribute('driver_net_amount', round($grossFare * (1 - ($commissionPct / 100)), 2));
         return array_merge($ride->toArray(), $this->forOffer($ride, $driver));
     }
 
@@ -269,6 +316,7 @@ class RideTrackingService
     {
         $ride->loadMissing([
             'passenger:id,name,phone',
+            'driver:user_id,city_id,current_lat,current_lng,is_female_driver,online,rating_avg',
             'driver.user:id,name,phone',
             'driver.vehicles',
             'driver.city:id,departure_lat,departure_lng',

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Rating extends Model
 {
+    use \App\Models\Concerns\BelongsToTenant;
     use HasUuids;
 
     protected $fillable = [
@@ -20,5 +21,10 @@ class Rating extends Model
     public function ride(): BelongsTo
     {
         return $this->belongsTo(Ride::class);
+    }
+
+    public function tenantIdFromParent(): ?string
+    {
+        return \App\Models\Ride::withoutGlobalScopes()->whereKey($this->ride_id)->value('tenant_id');
     }
 }

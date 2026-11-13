@@ -20,7 +20,12 @@ class RideController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Ride::query()->with(['passenger:id,name', 'driver.user:id,name', 'city']);
+        $query = Ride::query()->with([
+            'passenger:id,name',
+            'driver:user_id,city_id,current_lat,current_lng,is_female_driver,online,rating_avg',
+            'driver.user:id,name',
+            'city',
+        ]);
 
         if ($request->user()->isPassenger()) {
             $query->where('passenger_id', $request->user()->id);
@@ -120,7 +125,15 @@ class RideController extends Controller
         // Corrida real nunca dura horas; o teto evita que uma corrida
         // abandonada em testes sequestre a tela ao abrir o app.
         $query = Ride::query()
-            ->with(['passenger:id,name,phone', 'driver.user:id,name,phone', 'driver.vehicles', 'driver.city:id,departure_lat,departure_lng', 'city', 'ratings'])
+            ->with([
+                'passenger:id,name,phone',
+                'driver:user_id,city_id,current_lat,current_lng,is_female_driver,online,rating_avg',
+                'driver.user:id,name,phone',
+                'driver.vehicles',
+                'driver.city:id,departure_lat,departure_lng',
+                'city',
+                'ratings',
+            ])
             ->where('requested_at', '>=', now()->subHours(6));
 
         if ($user->isDriver()) {

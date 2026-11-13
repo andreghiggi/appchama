@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Domains\Drivers\Services\DriverLocationService;
+use App\Domains\Rides\Services\RideOfferService;
 use App\Events\RideOfferReceived;
 use App\Events\RideStatusChanged;
 use App\Models\Ride;
@@ -10,75 +11,171 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * Oferta a corrida a um motorista por vez sem bloquear o worker: cada execução
+ * entrega uma oferta e reagenda a si mesma para o fim da janela. O $offerSeq
+ * descarta execuções agendadas que foram superadas por uma recusa imediata.
+ */
 class MatchDriverJob implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public string $rideId) {}
+    public const OFFER_WINDOW_SECONDS = 45;
 
-    public function handle(DriverLocationService $locationService): void
+    private const MAX_SEARCH_SECONDS = 180;
+
+    private const RETRY_SECONDS = 8;
+
+    private const STATE_TTL = 600;
+
+    public function __construct(public string $rideId, public int $offerSeq = 0)
+    {
+        $this->onQueue('appchama');
+    }
+
+    public function handle(DriverLocationService $locationService, RideOfferService $offerService): void
     {
         $ride = Ride::query()->find($this->rideId);
 
-        if (! $ride || $ride->status !== 'searching') {
+        if (! $ride) {
             return;
         }
 
-        $candidates = $locationService->findNearby(
-            $ride->city_id,
-            (float) $ride->origin_lat,
-            (float) $ride->origin_lng,
-        );
+        if ($this->offerSeq > 0 && (int) Cache::get($this->seqKey(), 0) !== $this->offerSeq) {
+            return;
+        }
 
-        if (empty($candidates)) {
-            $ride->update(['status' => 'no_drivers_available']);
-            event(new RideStatusChanged($ride->fresh()));
+        $this->releaseCurrentOffer($offerService);
+
+        if ($ride->status !== 'searching') {
+            $this->forgetState();
+            $offerService->clearDeclined($this->rideId);
 
             return;
         }
 
-        foreach ($candidates as $candidate) {
-            $driver = $candidate['driver'];
-            $lockKey = "ride:{$ride->id}:offer:{$driver->user_id}";
+        $startedAt = (int) Cache::remember($this->startedKey(), self::STATE_TTL, fn () => now()->timestamp);
 
-            if (! Cache::add($lockKey, true, 20)) {
-                continue;
-            }
+        if (now()->timestamp - $startedAt >= self::MAX_SEARCH_SECONDS) {
+            $this->giveUp($ride, $offerService);
 
-            event(new RideOfferReceived($ride, $driver->user_id));
-
-            $accepted = $this->waitForResponse($ride, $driver->user_id, 15);
-
-            if ($accepted) {
-                return;
-            }
+            return;
         }
 
+        $candidate = $this->nextCandidate($ride, $locationService, $offerService);
+
+        if (! $candidate) {
+            self::dispatch($this->rideId, $this->offerSeq)->delay(now()->addSeconds(self::RETRY_SECONDS));
+
+            return;
+        }
+
+        $driver = $candidate['driver'];
+        $seq = (int) Cache::get($this->seqKey(), 0) + 1;
+
+        Cache::put($this->seqKey(), $seq, self::STATE_TTL);
+        Cache::put($this->currentKey(), $driver->user_id, self::OFFER_WINDOW_SECONDS + 30);
+
+        $offerService->setPending($driver->user_id, $ride, self::OFFER_WINDOW_SECONDS);
+        event(new RideOfferReceived($ride, $driver->user_id, self::OFFER_WINDOW_SECONDS));
+
+        self::dispatch($this->rideId, $seq)->delay(now()->addSeconds(self::OFFER_WINDOW_SECONDS));
+    }
+
+    /**
+     * Escolhe o próximo motorista ainda não abordado nesta rodada. Ao esgotar a
+     * lista, reinicia a rodada para dar nova chance a quem perdeu a janela por
+     * estar com o app em segundo plano.
+     */
+    private function nextCandidate(
+        Ride $ride,
+        DriverLocationService $locationService,
+        RideOfferService $offerService,
+    ): ?array {
+        $offered = (array) Cache::get($this->offeredKey(), []);
+        $declined = $offerService->declinedBy($this->rideId);
+
+        $pick = function () use ($ride, $locationService, $declined, &$offered): ?array {
+            foreach ($locationService->findNearby($ride->city_id, (float) $ride->origin_lat, (float) $ride->origin_lng) as $candidate) {
+                $driverId = $candidate['driver']->user_id;
+
+                if (in_array($driverId, $declined, true)) {
+                    continue;
+                }
+
+                if (! in_array($driverId, $offered, true)) {
+                    return $candidate;
+                }
+            }
+
+            return null;
+        };
+
+        $candidate = $pick();
+
+        if (! $candidate && $offered !== []) {
+            $offered = [];
+            $candidate = $pick();
+        }
+
+        if (! $candidate) {
+            return null;
+        }
+
+        $offered[] = $candidate['driver']->user_id;
+        Cache::put($this->offeredKey(), $offered, self::STATE_TTL);
+
+        return $candidate;
+    }
+
+    private function releaseCurrentOffer(RideOfferService $offerService): void
+    {
+        $current = Cache::get($this->currentKey());
+
+        if ($current) {
+            $offerService->clearPending($current);
+            Cache::forget($this->currentKey());
+        }
+    }
+
+    private function giveUp(Ride $ride, RideOfferService $offerService): void
+    {
         $ride->refresh();
+
         if ($ride->status === 'searching') {
             $ride->update(['status' => 'no_drivers_available']);
             event(new RideStatusChanged($ride->fresh()));
         }
+
+        $this->forgetState();
+        $offerService->clearDeclined($this->rideId);
     }
 
-    private function waitForResponse(Ride $ride, string $driverId, int $seconds): bool
+    private function forgetState(): void
     {
-        $deadline = now()->addSeconds($seconds);
+        Cache::forget($this->offeredKey());
+        Cache::forget($this->startedKey());
+        Cache::forget($this->seqKey());
+        Cache::forget($this->currentKey());
+    }
 
-        while (now()->lt($deadline)) {
-            $ride->refresh();
+    private function offeredKey(): string
+    {
+        return "ride:{$this->rideId}:offered";
+    }
 
-            if ($ride->status === 'accepted' && $ride->driver_id === $driverId) {
-                return true;
-            }
+    private function startedKey(): string
+    {
+        return "ride:{$this->rideId}:search_started";
+    }
 
-            if ($ride->status !== 'searching') {
-                return false;
-            }
+    private function seqKey(): string
+    {
+        return "ride:{$this->rideId}:offer_seq";
+    }
 
-            usleep(500000);
-        }
-
-        return false;
+    private function currentKey(): string
+    {
+        return "ride:{$this->rideId}:current_offer";
     }
 }

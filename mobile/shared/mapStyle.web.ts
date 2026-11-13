@@ -1,59 +1,50 @@
 import type mapboxgl from 'mapbox-gl';
-import { destinationMarkerHtml, driverMarkerHtml, originMarkerHtml } from './mapMarkerHtml';
 import type { MarkerVariant } from './mapStyle';
-import { MAP_LAND_COLOR, MAP_WATER_COLOR } from './mapStyle';
+import { MAP_LAND_COLOR, MAP_ROUTE_COLOR, MAP_WATER_COLOR } from './mapStyle';
 
-function markerHtml(
-  variant: MarkerVariant,
-  bearing?: number,
-  etaMinutes?: number,
-  etaLabel?: string,
-): string {
+function markerHtml(variant: MarkerVariant): string {
   switch (variant) {
     case 'driver':
-      return driverMarkerHtml();
+      return `
+        <div style="position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center">
+          <div style="width:28px;height:16px;background:#2563EB;border-radius:4px 4px 3px 3px;box-shadow:0 3px 10px rgba(0,0,0,.28);position:relative">
+            <div style="position:absolute;top:-5px;left:4px;width:10px;height:8px;background:#2563EB;border-radius:3px 3px 0 0"></div>
+            <div style="position:absolute;top:3px;left:3px;width:5px;height:4px;background:rgba(255,255,255,.85);border-radius:1px"></div>
+            <div style="position:absolute;top:3px;right:3px;width:5px;height:4px;background:rgba(255,255,255,.85);border-radius:1px"></div>
+          </div>
+        </div>`;
     case 'destination':
-      return destinationMarkerHtml(etaMinutes, etaLabel);
+      return `
+        <div style="display:flex;flex-direction:column;align-items:center;width:28px;height:38px">
+          <div style="width:12px;height:12px;background:#E24B4A;border:3px solid #fff;border-radius:2px;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>
+          <div style="width:2px;height:14px;background:#E24B4A;margin-top:-1px"></div>
+          <div style="width:8px;height:3px;background:rgba(0,0,0,.25);border-radius:50%;margin-top:2px"></div>
+        </div>`;
     case 'origin':
     default:
-      return originMarkerHtml();
+      return `
+        <div style="display:flex;flex-direction:column;align-items:center;width:28px;height:38px">
+          <div style="width:14px;height:14px;background:#111;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.35)"></div>
+          <div style="width:2px;height:12px;background:#111;margin-top:-1px"></div>
+          <div style="width:8px;height:3px;background:rgba(0,0,0,.25);border-radius:50%;margin-top:2px"></div>
+        </div>`;
   }
 }
 
-export function createMarkerElement(
-  variant: MarkerVariant = 'passenger',
-  bearing?: number,
-  etaMinutes?: number,
-  etaLabel?: string,
-): HTMLDivElement {
+export function createMarkerElement(variant: MarkerVariant = 'passenger'): HTMLDivElement {
   const el = document.createElement('div');
   el.className = 'chama-map-marker';
-  el.innerHTML = markerHtml(variant === 'passenger' ? 'origin' : variant, bearing, etaMinutes, etaLabel);
+  el.innerHTML = markerHtml(variant === 'passenger' ? 'origin' : variant);
   return el;
 }
 
-export function setMarkerBearing(element: HTMLElement, bearing: number): void {
-  const rotateEl = element.querySelector('[data-car-rotate]') as HTMLElement | null;
-  if (rotateEl) {
-    rotateEl.style.transform = `rotate(${bearing}deg)`;
-  }
-}
-
-/** Visual próximo ao Google Maps: ruas legíveis, menos poluição de POI. */
+/** Aplica paleta minimalista (cinza/azul) e esconde rótulos do Mapbox. */
 export function applyChamaMapTheme(map: mapboxgl.Map): void {
   const style = map.getStyle();
   if (!style?.layers) return;
 
   for (const layer of style.layers) {
-    if (layer.type !== 'symbol') continue;
-
-    const id = layer.id.toLowerCase();
-    const hide =
-      id.includes('poi') ||
-      id.includes('transit') ||
-      id.includes('airport');
-
-    if (hide) {
+    if (layer.type === 'symbol') {
       try {
         map.setLayoutProperty(layer.id, 'visibility', 'none');
       } catch {
@@ -87,20 +78,6 @@ export const MAPBOX_CSS = `
 }
 .chama-map-marker {
   cursor: default;
-  z-index: 10;
-}
-.chama-car-marker {
-  pointer-events: none;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
-}
-.chama-car-marker-shell {
-  background: #fff;
-  border-radius: 50%;
-  padding: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 .mapboxgl-ctrl-bottom-right,
 .mapboxgl-ctrl-bottom-left {
@@ -119,3 +96,5 @@ export const MAP_ATTRIBUTION =
   '&copy; OpenStreetMap &copy; Mapbox';
 
 export const LEAFLET_UBER_CSS = MAPBOX_CSS;
+
+export { MAP_ROUTE_COLOR };

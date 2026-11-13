@@ -13,3 +13,7 @@ Thumbs.db
 /mobile/*/node_modules
 /mobile/*/.expo
 /mobile/*/dist
+
+dist-*/
+.expo/
+node_modules/

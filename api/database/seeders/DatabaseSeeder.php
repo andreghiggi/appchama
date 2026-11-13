@@ -37,6 +37,9 @@ class DatabaseSeeder extends Seeder
             'price_per_min' => 0.50,
             'min_fare' => 8.00,
             'active' => true,
+            'departure_address' => 'Centro, São Paulo - SP',
+            'departure_lat' => -23.5505,
+            'departure_lng' => -46.6333,
         ]);
 
         User::query()->create([
@@ -71,6 +74,9 @@ class DatabaseSeeder extends Seeder
         $driver = Driver::query()->create([
             'user_id' => $driverUser->id,
             'city_id' => $city->id,
+            'departure_address' => 'Centro, São Paulo - SP',
+            'departure_lat' => -23.5505,
+            'departure_lng' => -46.6333,
             'cnh_number' => '12345678900',
             'cnh_expiry' => now()->addYears(2),
             'background_check_status' => 'approved',

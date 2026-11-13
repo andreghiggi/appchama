@@ -16,6 +16,7 @@ export const theme = {
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8088/api/v1';
 export const TENANT_SLUG = process.env.EXPO_PUBLIC_TENANT_SLUG ?? 'chama-demo';
+export const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 export const REVERB_KEY = process.env.EXPO_PUBLIC_REVERB_KEY ?? 'appchama-key';
 export const REVERB_HOST = process.env.EXPO_PUBLIC_REVERB_HOST ?? 'localhost';
 export const REVERB_PORT = process.env.EXPO_PUBLIC_REVERB_PORT ?? '8080';

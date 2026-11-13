@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api } from '../../../shared/api';
+import { formatBrl } from '../../../shared/fare';
 import { theme } from '../../../shared/theme';
 import type { Ride } from '../../../shared/types';
 
@@ -26,6 +27,9 @@ export default function RatingScreen({ ride, onDone }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Como foi a corrida?</Text>
+      <Text style={styles.fareLine}>
+        Valor pago: {formatBrl(Number(ride.final_fare ?? ride.estimated_fare ?? 0))}
+      </Text>
       <View style={styles.stars}>
         {[1, 2, 3, 4, 5].map((n) => (
           <Pressable key={n} onPress={() => setScore(n)}>
@@ -48,7 +52,8 @@ export default function RatingScreen({ ride, onDone }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 22, fontWeight: '700', color: theme.ink, marginBottom: 16 },
+  title: { fontSize: 22, fontWeight: '700', color: theme.ink, marginBottom: 8 },
+  fareLine: { fontSize: 15, color: theme.textSecondary, marginBottom: 16 },
   stars: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   star: { fontSize: 36, color: theme.line },
   starOn: { color: theme.amberDark },

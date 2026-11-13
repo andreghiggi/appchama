@@ -7,14 +7,7 @@ export async function searchAddresses(
   query: string,
   near: { latitude: number; longitude: number },
   cityId?: string,
-): Promise<{
-  results: GeocodeResult[];
-  cityId?: string;
-  cityName?: string;
-  maxRadiusKm?: number;
-  filteredCount?: number;
-  mapboxCount?: number;
-}> {
+): Promise<{ results: GeocodeResult[]; cityId?: string; cityName?: string; maxRadiusKm?: number }> {
   const q = query.trim();
   if (q.length < 3) return { results: [] };
 
@@ -25,21 +18,13 @@ export async function searchAddresses(
       cityId: response.city_id,
       cityName: response.city_name,
       maxRadiusKm: response.max_radius_km,
-      filteredCount: response.filtered_count,
-      mapboxCount: response.mapbox_count,
     };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Falha ao buscar endereço';
-    if (msg.includes('503') || msg.includes('indisponível') || msg.includes('Geocoding')) {
-      throw new Error('Busca de endereços indisponível no momento. Tente novamente em instantes.');
+    if (msg.includes('503') || msg.includes('indisponível')) {
+      throw new Error('Busca de endereços indisponível. Verifique MAPBOX_ACCESS_TOKEN na API.');
     }
-    if (
-      msg.includes('partida') ||
-      msg.includes('área') ||
-      msg.includes('operacao') ||
-      msg.includes('operação') ||
-      msg.includes('Configure o endereço')
-    ) {
+    if (msg.includes('partida') || msg.includes('área') || msg.includes('operacao') || msg.includes('operação')) {
       throw new Error(msg);
     }
     throw e instanceof Error ? e : new Error(msg);

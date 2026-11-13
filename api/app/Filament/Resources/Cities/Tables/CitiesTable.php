@@ -17,6 +17,7 @@ class CitiesTable
             ->columns([
                 TextColumn::make('name')->label('Cidade')->searchable(),
                 TextColumn::make('state')->label('UF'),
+                IconColumn::make('rides_enabled')->label('Corridas')->boolean(),
                 TextColumn::make('base_fare')->label('Bandeirada')->money('BRL'),
                 TextColumn::make('price_per_km')->label('R$/km')->money('BRL'),
                 TextColumn::make('price_per_min')->label('R$/min')->money('BRL'),

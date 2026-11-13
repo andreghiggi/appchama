@@ -1,10 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,12 +9,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { APP_LAYOUT_VERSION } from '../../../shared/appVersion';
-import { useScreenLayout } from '../../../shared/responsive';
-import { setWebSearchMode, useVisualViewport } from '../../../shared/webMobile';
-import { AddressSuggestions } from '../components/AddressSuggestions';
-import { CitySearchPicker, type NearbyCity } from '../components/CitySearchPicker';
 import { api } from '../../../shared/api';
 import {
   boundsForPoints,
@@ -29,9 +20,7 @@ import {
 import { formatBrl } from '../../../shared/fare';
 import { requestCurrentLocation } from '../../../shared/location';
 import { MapLocateButton } from '../../../shared/MapLocateButton';
-import { toNumber } from '../../../shared/coords';
 import {
-  cityDepartureCenter,
   resolvePickupPoint,
 } from '../../../shared/serviceArea';
 import { AppMap, AppMarker, AppRoute } from '../../../shared/SimpleMap';
@@ -50,22 +39,13 @@ type RideEstimate = {
   routePoints: Array<{ latitude: number; longitude: number }>;
 };
 
-function rideOrigin(
-  activeCity: City,
-  pickup: { latitude: number; longitude: number },
-): { pickup: { latitude: number; longitude: number }; usedCityCenter: boolean } {
-  return resolvePickupPoint(pickup, activeCity);
-}
-
 export default function HomeScreen({ onRideActive }: Props) {
   const { user } = useAuth();
-  const layout = useScreenLayout();
-  const viewport = useVisualViewport();
   const [region, setRegion] = useState({
-    latitude: -28.8436,
-    longitude: -51.8908,
-    latitudeDelta: 0.08,
-    longitudeDelta: 0.08,
+    latitude: -23.5505,
+    longitude: -46.6333,
+    latitudeDelta: 0.04,
+    longitudeDelta: 0.04,
   });
   const [pickupPoint, setPickupPoint] = useState<{ latitude: number; longitude: number } | null>(
     null,
@@ -86,38 +66,15 @@ export default function HomeScreen({ onRideActive }: Props) {
   const [maxRadiusKm, setMaxRadiusKm] = useState(50);
   const [city, setCity] = useState<City | null>(null);
   const [operatingCities, setOperatingCities] = useState<City[]>([]);
-  const [nearbyCities, setNearbyCities] = useState<NearbyCity[]>([]);
-  const [citiesLoading, setCitiesLoading] = useState(true);
-  const [nearbyLoading, setNearbyLoading] = useState(false);
-  const [citiesError, setCitiesError] = useState<string | null>(null);
-  const [gpsOutsideArea, setGpsOutsideArea] = useState(false);
   const [cityLocked, setCityLocked] = useState(false);
   const [fareEstimate, setFareEstimate] = useState<RideEstimate | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const regionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cityLockedRef = useRef(false);
-  const skipSearchRef = useRef(false);
-  const searchSeqRef = useRef(0);
-  const destinationAnchorRef = useRef<View>(null);
-  const sheetScrollRef = useRef<ScrollView>(null);
-  const [destinationFocused, setDestinationFocused] = useState(false);
-
-  cityLockedRef.current = cityLocked;
 
   const activePickup = pickupPoint ?? {
     latitude: region.latitude,
     longitude: region.longitude,
   };
-
-  const searchOrigin = useMemo(() => {
-    if (city) {
-      const center = cityDepartureCenter(city);
-      if (center) {
-        return center;
-      }
-    }
-    return activePickup;
-  }, [city, activePickup.latitude, activePickup.longitude]);
 
   const routePoints = useMemo(() => {
     if (fareEstimate?.routePoints.length) return fareEstimate.routePoints;
@@ -131,36 +88,19 @@ export default function HomeScreen({ onRideActive }: Props) {
     [destinationPoint, activePickup, region],
   );
 
-  const fitCoords = useMemo(() => {
-    if (routePoints.length >= 2) {
-      return routePoints;
-    }
-    if (destinationPoint) {
-      return [activePickup, destinationPoint];
-    }
-    return undefined;
-  }, [routePoints, destinationPoint, activePickup]);
-
-  const mapOverlay = useMemo(() => {
-    if (!destinationPoint) return null;
-    return (
-      <>
-        <AppMarker coordinate={activePickup} title="Embarque" variant="origin" />
-        <AppMarker coordinate={destinationPoint} title="Destino" variant="destination" />
-        {routePoints.length >= 2 ? <AppRoute coordinates={routePoints} /> : null}
-      </>
-    );
-  }, [destinationPoint, activePickup, routePoints]);
+  const fitCoords = useMemo(
+    () => (destinationPoint ? [activePickup, destinationPoint] : undefined),
+    [destinationPoint, activePickup],
+  );
 
   const resolveCityAt = async (
     coords: { latitude: number; longitude: number },
     options?: { cityId?: string; manual?: boolean },
   ): Promise<{ city: City | null; withinServiceArea: boolean }> => {
     const cityId = options?.cityId ?? (cityLocked && city ? city.id : undefined);
-    const useSelect = Boolean(options?.manual || (cityLocked && cityId));
 
     try {
-      const resolved = await api.nearestCity(coords.latitude, coords.longitude, cityId, useSelect);
+      const resolved = await api.nearestCity(coords.latitude, coords.longitude, cityId);
       setCity(resolved.city);
       setMaxRadiusKm(resolved.max_radius_km);
 
@@ -179,9 +119,6 @@ export default function HomeScreen({ onRideActive }: Props) {
       }
       return { city: resolved.city, withinServiceArea: true };
     } catch (e: unknown) {
-      if (cityId && city && cityLocked) {
-        return { city, withinServiceArea: true };
-      }
       if (cityId && city) {
         return { city, withinServiceArea: false };
       }
@@ -237,9 +174,11 @@ export default function HomeScreen({ onRideActive }: Props) {
       latitude: pickup.latitude,
       longitude: pickup.longitude,
     }));
-    setPickupPoint(pickup);
-    const label = await reverseGeocode(pickup.latitude, pickup.longitude);
-    setPickupLabel(label);
+    if (!destinationPoint) {
+      setPickupPoint(null);
+      const label = await reverseGeocode(pickup.latitude, pickup.longitude);
+      setPickupLabel(label);
+    }
     setPickupAreaHint(
       usedCityCenter
         ? `Sua localização está fora da área. Embarque definido em ${activeCity.name}.`
@@ -252,19 +191,20 @@ export default function HomeScreen({ onRideActive }: Props) {
     setLocationError(null);
     try {
       const coords = await requestCurrentLocation();
-      await loadNearbyCities(coords);
-      if (cityLocked && city) {
-        await resolveCityAt(coords, { cityId: city.id, manual: true });
-        await applyPickup(coords, city);
+      const { city: activeCity, withinServiceArea } = await resolveCityAt(coords);
+      if (activeCity && withinServiceArea) {
+        await applyPickup(coords, activeCity);
       } else {
         setRegion((r) => ({
           ...r,
           latitude: coords.latitude,
           longitude: coords.longitude,
         }));
-        setPickupPoint({ latitude: coords.latitude, longitude: coords.longitude });
-        const label = await reverseGeocode(coords.latitude, coords.longitude);
-        setPickupLabel(label);
+        if (!destinationPoint) {
+          setPickupPoint(null);
+          const label = await reverseGeocode(coords.latitude, coords.longitude);
+          setPickupLabel(label);
+        }
       }
     } catch (e: unknown) {
       setLocationError(e instanceof Error ? e.message : 'Não foi possível obter sua localização.');
@@ -280,7 +220,7 @@ export default function HomeScreen({ onRideActive }: Props) {
     longitudeDelta?: number;
   }) => {
     setRegion(next);
-    if (destinationPoint || cityLockedRef.current) return;
+    if (destinationPoint) return;
 
     if (regionTimer.current) clearTimeout(regionTimer.current);
     regionTimer.current = setTimeout(() => {
@@ -294,201 +234,105 @@ export default function HomeScreen({ onRideActive }: Props) {
     };
   }, []);
 
-  const loadOperatingCities = useCallback(async () => {
-    setCitiesLoading(true);
-    setCitiesError(null);
-    try {
-      const cities = await api.listCities();
-      const list = Array.isArray(cities) ? cities : [];
-      setOperatingCities(list);
-      if (list.length === 0) {
-        setCitiesError('Nenhuma cidade disponível no momento.');
-        return list;
+  useEffect(() => {
+    (async () => {
+      try {
+        const cities = await api.listCities();
+        setOperatingCities(cities);
+      } catch {
+        setOperatingCities([]);
       }
-      return list;
-    } catch (e: unknown) {
-      setOperatingCities([]);
-      setCitiesError(
-        e instanceof Error ? e.message : 'Não foi possível carregar as cidades.',
-      );
-      return [];
-    } finally {
-      setCitiesLoading(false);
-    }
+    })();
   }, []);
 
-  const loadNearbyCities = useCallback(
-    async (coords?: { latitude: number; longitude: number }) => {
-      if (operatingCities.length === 0) return;
-
-      setNearbyLoading(true);
+  useEffect(() => {
+    (async () => {
       try {
-        let point = coords;
-        if (!point) {
-          const homeLat = user?.home_lat != null ? Number(user.home_lat) : null;
-          const homeLng = user?.home_lng != null ? Number(user.home_lng) : null;
-          if (
-            homeLat != null &&
-            homeLng != null &&
-            !Number.isNaN(homeLat) &&
-            !Number.isNaN(homeLng)
-          ) {
-            point = { latitude: homeLat, longitude: homeLng };
-          } else {
-            point = (await requestCurrentLocation().catch(() => null)) ?? undefined;
+        const homeLat = user?.home_lat != null ? Number(user.home_lat) : null;
+        const homeLng = user?.home_lng != null ? Number(user.home_lng) : null;
+
+        if (homeLat != null && homeLng != null && !Number.isNaN(homeLat) && !Number.isNaN(homeLng)) {
+          const { city: activeCity, withinServiceArea } = await resolveCityAt({
+            latitude: homeLat,
+            longitude: homeLng,
+          });
+          if (activeCity && withinServiceArea) {
+            await applyPickup({ latitude: homeLat, longitude: homeLng }, activeCity);
+            if (user?.home_address) {
+              setPickupLabel(user.home_address);
+            }
+            return;
           }
         }
 
-        if (point) {
-          const response = await api.nearbyCities(point.latitude, point.longitude);
-          setMaxRadiusKm(response.max_radius_km);
-          const list = Array.isArray(response.cities) ? response.cities : [];
-          if (list.length > 0) {
-            setNearbyCities(list);
-            setGpsOutsideArea(false);
-            return list;
-          }
-        }
-
-        setGpsOutsideArea(true);
-        setNearbyCities(operatingCities);
-        return operatingCities;
-      } catch {
-        setGpsOutsideArea(true);
-        setNearbyCities(operatingCities);
-        return operatingCities;
-      } finally {
-        setNearbyLoading(false);
-      }
-    },
-    [operatingCities, user?.home_lat, user?.home_lng],
-  );
-
-  useEffect(() => {
-    void loadOperatingCities();
-  }, [loadOperatingCities]);
-
-  useEffect(() => {
-    if (citiesLoading || operatingCities.length === 0) return;
-    void loadNearbyCities();
-  }, [citiesLoading, operatingCities, loadNearbyCities]);
-
-  useEffect(() => {
-    if (citiesLoading || nearbyLoading || cityLockedRef.current) return;
-
-    void (async () => {
-      try {
         const matchedCity = matchCityByName(user?.home_city);
         if (matchedCity) {
           await selectOperatingCity(matchedCity);
           return;
         }
 
-        if (nearbyCities.length === 1) {
-          await selectOperatingCity(nearbyCities[0]);
-          return;
-        }
-
-        const homeLat = user?.home_lat != null ? Number(user.home_lat) : null;
-        const homeLng = user?.home_lng != null ? Number(user.home_lng) : null;
-        if (homeLat != null && homeLng != null && !Number.isNaN(homeLat) && !Number.isNaN(homeLng)) {
-          const match = nearbyCities.find((c) => c.id === city?.id);
-          if (match) {
-            await applyPickup({ latitude: homeLat, longitude: homeLng }, match);
-            if (user?.home_address) {
-              setPickupLabel(user.home_address);
-            }
+        const coords = await requestCurrentLocation().catch(() => null);
+        if (coords) {
+          const { city: activeCity, withinServiceArea } = await resolveCityAt(coords);
+          if (activeCity && withinServiceArea) {
+            await applyPickup(coords, activeCity);
+            return;
           }
         }
+
+        if (operatingCities.length === 1) {
+          await selectOperatingCity(operatingCities[0]);
+        }
       } catch {
-        // seleção manual permanece disponível
+        if (operatingCities.length === 1) {
+          await selectOperatingCity(operatingCities[0]);
+        }
       }
     })();
-  }, [
-    citiesLoading,
-    nearbyLoading,
-    nearbyCities,
-    user?.home_city,
-    user?.home_lat,
-    user?.home_lng,
-    user?.home_address,
-  ]);
+  }, [user?.home_lat, user?.home_lng, user?.home_address, user?.home_city, operatingCities.length]);
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     const q = destination.trim();
-
-    if (skipSearchRef.current) {
-      skipSearchRef.current = false;
-      return;
-    }
-
     if (q.length < 3 || destinationPoint?.label === q) {
       setSuggestions([]);
-      if (destinationPoint?.label === q) {
-        setGeocodeError(null);
-      }
+      setGeocodeError(null);
       return;
     }
-
-    if (!city || !cityLocked) {
-      setSuggestions([]);
-      setGeocodeError('Selecione a cidade de operação acima antes de buscar o destino.');
-      return;
-    }
-
-    const seq = ++searchSeqRef.current;
 
     searchTimer.current = setTimeout(async () => {
       setSearching(true);
       setGeocodeError(null);
       try {
-        const { results, cityId, cityName, maxRadiusKm: radiusKm, filteredCount } =
-          await searchAddresses(q, searchOrigin, city.id);
-        if (seq !== searchSeqRef.current) return;
-
+        const { results, cityId, cityName, maxRadiusKm: radiusKm } = await searchAddresses(
+          q,
+          activePickup,
+          city?.id,
+        );
         if (radiusKm != null) setMaxRadiusKm(radiusKm);
-        if (cityId && city.id !== cityId) {
-          const matched = operatingCities.find((item) => item.id === cityId);
-          if (matched && cityLockedRef.current) {
-            setCity(matched);
-          }
+        if (cityId && city?.id !== cityId) {
+          await resolveCityAt(activePickup, { cityId });
         }
         setSuggestions(results);
         if (results.length === 0) {
-          const label = cityName ?? city.name ?? 'operação';
+          const label = cityName ?? city?.name ?? 'operação';
           const radius = radiusKm ?? maxRadiusKm;
-          const filteredHint =
-            filteredCount && filteredCount > 0
-              ? ` (${filteredCount} endereço(s) fora do raio foram ignorados)`
-              : '';
           setGeocodeError(
-            `Nenhum endereço em ${label} (raio ${radius} km). Inclua rua e bairro ou tente o nome completo.${filteredHint}`,
+            `Nenhum endereço encontrado dentro de ${radius} km de ${label}.`,
           );
         }
       } catch (e: unknown) {
-        if (seq !== searchSeqRef.current) return;
         setSuggestions([]);
         setGeocodeError(e instanceof Error ? e.message : 'Falha na busca de endereços.');
       } finally {
-        if (seq === searchSeqRef.current) {
-          setSearching(false);
-        }
+        setSearching(false);
       }
     }, 450);
 
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
-  }, [
-    destination,
-    searchOrigin.latitude,
-    searchOrigin.longitude,
-    destinationPoint?.label,
-    city?.id,
-    cityLocked,
-    operatingCities,
-  ]);
+  }, [destination, activePickup.latitude, activePickup.longitude, destinationPoint?.label, city?.id]);
 
   useEffect(() => {
     if (!city || !destinationPoint) {
@@ -497,17 +341,11 @@ export default function HomeScreen({ onRideActive }: Props) {
       return;
     }
 
-    const rawOrigin = pickupPoint ?? activePickup;
-    const { pickup: origin, usedCityCenter } = rideOrigin(city, rawOrigin);
+    const origin = pickupPoint ?? activePickup;
 
     let cancelled = false;
     setEstimating(true);
     setEstimateError(null);
-    setPickupAreaHint(
-      usedCityCenter
-        ? `Sua localização está fora da área. Embarque definido em ${city.name}.`
-        : null,
-    );
 
     (async () => {
       try {
@@ -525,10 +363,9 @@ export default function HomeScreen({ onRideActive }: Props) {
           distanceKm: estimate.distance_km,
           durationMin: estimate.duration_min,
           fare: estimate.estimated_fare,
-          routePoints:
-            (estimate.coordinates?.length ?? 0) >= 2
-              ? estimate.coordinates
-              : buildRoutePoints(origin, destinationPoint),
+          routePoints: estimate.coordinates?.length
+            ? estimate.coordinates
+            : buildRoutePoints(origin, destinationPoint),
         });
         setEstimateError(null);
       } catch (e: unknown) {
@@ -546,35 +383,19 @@ export default function HomeScreen({ onRideActive }: Props) {
     };
   }, [city, destinationPoint, pickupPoint, activePickup.latitude, activePickup.longitude]);
 
-  const selectDestination = useCallback((item: GeocodeResult) => {
-    searchSeqRef.current += 1;
-    if (searchTimer.current) {
-      clearTimeout(searchTimer.current);
-      searchTimer.current = null;
-    }
-    skipSearchRef.current = true;
-    setSearching(false);
-
-    const frozenPickup = city
-      ? rideOrigin(city, activePickup).pickup
-      : {
-          latitude: activePickup.latitude,
-          longitude: activePickup.longitude,
-        };
-
+  const selectDestination = async (item: GeocodeResult) => {
+    const frozenPickup = {
+      latitude: activePickup.latitude,
+      longitude: activePickup.longitude,
+    };
     setPickupPoint(frozenPickup);
     setDestination(item.label);
-    setDestinationPoint({
-      label: item.label,
-      latitude: toNumber(item.latitude),
-      longitude: toNumber(item.longitude),
-    });
+    setDestinationPoint(item);
     setSuggestions([]);
-    setGeocodeError(null);
-    Keyboard.dismiss();
 
-    void reverseGeocode(frozenPickup.latitude, frozenPickup.longitude).then(setPickupLabel);
-  }, [city, activePickup.latitude, activePickup.longitude]);
+    const label = await reverseGeocode(frozenPickup.latitude, frozenPickup.longitude);
+    setPickupLabel(label);
+  };
 
   const clearDestination = () => {
     setDestination('');
@@ -586,45 +407,30 @@ export default function HomeScreen({ onRideActive }: Props) {
     setSuggestions([]);
   };
 
-  const canRequestRide =
-    Boolean(city && destinationPoint) &&
-    (!areaError || (cityLocked && city && destinationPoint));
-
   const requestRide = async () => {
-    if (areaError && !(cityLocked && city && destinationPoint)) {
+    if (areaError) {
       Alert.alert('Fora da área', areaError);
       return;
     }
-    if (!destinationPoint || !city) {
+    if (!destinationPoint) {
       Alert.alert('Destino', 'Selecione um endereço de destino na lista.');
       return;
     }
 
     setLoading(true);
     try {
-      const { city: activeCity, withinServiceArea } = await resolveCityAt(activePickup, {
-        manual: cityLocked,
-      });
+      const { city: activeCity, withinServiceArea } = await resolveCityAt(activePickup);
       if (!activeCity || !withinServiceArea) {
         Alert.alert('Fora da área', areaError ?? 'Localização fora das áreas de operação.');
         return;
       }
 
-      const { pickup: origin, usedCityCenter } = rideOrigin(activeCity, activePickup);
-      if (usedCityCenter) {
-        setPickupAreaHint(
-          `Sua localização está fora da área. Embarque definido em ${activeCity.name}.`,
-        );
-      }
-
       const originAddress =
-        usedCityCenter && activeCity.departure_address
-          ? activeCity.departure_address
-          : pickupLabel ?? (await reverseGeocode(origin.latitude, origin.longitude));
+        pickupLabel ?? (await reverseGeocode(activePickup.latitude, activePickup.longitude));
       const ride = await api.createRide({
         city_id: activeCity.id,
-        origin_lat: origin.latitude,
-        origin_lng: origin.longitude,
+        origin_lat: activePickup.latitude,
+        origin_lng: activePickup.longitude,
         origin_address: originAddress,
         destination_lat: destinationPoint.latitude,
         destination_lng: destinationPoint.longitude,
@@ -638,450 +444,166 @@ export default function HomeScreen({ onRideActive }: Props) {
     }
   };
 
-  const compactSearch =
-    destinationFocused ||
-    viewport.keyboardOpen ||
-    (destination.trim().length > 0 && !destinationPoint);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    setWebSearchMode(compactSearch);
-    return () => setWebSearchMode(false);
-  }, [compactSearch]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !compactSearch) return;
-    window.scrollTo(0, 0);
-  }, [compactSearch, viewport.offsetTop, viewport.keyboardOpen, viewport.height]);
-
-  const compactSearchBody = (
-    <>
-      <View style={styles.searchHeader}>
-        <Text style={styles.searchTitle}>
-          Para onde vamos?
-          {Platform.OS === 'web' ? (
-            <Text style={styles.versionTag}> · v{APP_LAYOUT_VERSION}</Text>
+  return (
+    <View style={styles.container}>
+      <View style={styles.mapWrap}>
+        <AppMap
+          style={styles.map}
+          region={mapRegion}
+          onRegionChangeComplete={destinationPoint ? undefined : handleRegionChangeComplete}
+          pinMode={destinationPoint ? 'marker' : 'center'}
+          fitToCoordinates={fitCoords}
+        >
+          {destinationPoint ? (
+            <>
+              <AppMarker coordinate={activePickup} title="Embarque" variant="origin" />
+              <AppMarker coordinate={destinationPoint} title="Destino" variant="destination" />
+              <AppRoute coordinates={routePoints} />
+            </>
           ) : null}
-        </Text>
-        {city && cityLocked ? (
-          <View style={styles.compactContext}>
-            <View style={styles.searchOriginRow}>
-              <View style={[styles.routeBadge, styles.routeBadgeFrom, styles.searchBadge]}>
-                <Text style={styles.routeBadgeText}>Início</Text>
-              </View>
-              <Text style={styles.compactOrigin} numberOfLines={1}>
-                {pickupLabel ?? 'Minha localização'}
-              </Text>
-            </View>
-            {cityLocked ? (
-              <MapLocateButton
-                variant="inline"
-                label="Minha localização"
-                onPress={centerOnUser}
-                loading={locating}
-              />
-            ) : null}
+        </AppMap>
+        <MapLocateButton onPress={centerOnUser} loading={locating} />
+      </View>
+
+      {areaError ? (
+        <View style={styles.areaErrorBanner}>
+          <Text style={styles.areaErrorText}>{areaError}</Text>
+        </View>
+      ) : null}
+      {pickupAreaHint ? (
+        <View style={styles.locationBanner}>
+          <Text style={styles.locationBannerText}>{pickupAreaHint}</Text>
+        </View>
+      ) : null}
+      {locationError ? (
+        <View style={styles.locationBanner}>
+          <Text style={styles.locationBannerText}>{locationError}</Text>
+        </View>
+      ) : null}
+
+      <ScrollView
+        style={styles.sheetScroll}
+        contentContainerStyle={styles.sheet}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.greet}>Escolha o destino</Text>
+        {operatingCities.length > 0 ? (
+          <View style={styles.cityPicker}>
+            <Text style={styles.cityPickerLabel}>Cidade de operação</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {operatingCities.map((item) => {
+                const selected = city?.id === item.id;
+                return (
+                  <Pressable
+                    key={item.id}
+                    style={[styles.cityChip, selected && styles.cityChipActive]}
+                    onPress={() => void selectOperatingCity(item)}
+                  >
+                    <Text style={[styles.cityChipText, selected && styles.cityChipTextActive]}>
+                      {item.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </View>
         ) : null}
-      </View>
-      <View style={[styles.routeRow, styles.searchDestinationRow]}>
-        <View style={[styles.routeBadge, styles.routeBadgeTo, styles.searchBadge]}>
-          <Text style={styles.routeBadgeText}>Destino</Text>
-        </View>
-        <View
-          ref={destinationAnchorRef}
-          style={[styles.routeInputWrap, styles.searchInputWrap]}
-          collapsable={false}
-        >
-          <TextInput
-            style={[
-              styles.routeInput,
-              styles.searchRouteInput,
-              !cityLocked && styles.routeInputDisabled,
-            ]}
-            placeholder={
-              cityLocked ? 'Buscar endereço de destino' : 'Selecione a cidade acima primeiro'
-            }
-            placeholderTextColor={theme.textMuted}
-            editable={cityLocked}
-            value={destination}
-            onFocus={() => setDestinationFocused(true)}
-            onBlur={() => {
-              setTimeout(() => setDestinationFocused(false), 150);
-            }}
-            onChangeText={(text) => {
-              setDestination(text);
-              if (destinationPoint && text !== destinationPoint.label) {
-                setDestinationPoint(null);
-                setPickupPoint(null);
-                setPickupLabel(null);
-                setFareEstimate(null);
-              }
-            }}
-          />
-          {destinationPoint ? (
-            <Pressable style={styles.clearBtn} onPress={clearDestination}>
-              <Text style={styles.clearBtnText}>✕</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-      {searching ? <ActivityIndicator color={theme.ink} style={{ marginBottom: 8 }} /> : null}
-      {geocodeError ? <Text style={styles.inlineError}>{geocodeError}</Text> : null}
-      {suggestions.length > 0 && !destinationPoint ? (
-        <AddressSuggestions
-          items={suggestions}
-          onSelect={selectDestination}
-          anchorRef={destinationAnchorRef}
-        />
-      ) : null}
-    </>
-  );
-
-  const sheetBody = (
-    <>
-      {!compactSearch ? (
-        <>
-          <Text style={[styles.greet, layout.isCompact && styles.greetCompact]}>
-            Para onde vamos?
-            {Platform.OS === 'web' ? (
-              <Text style={styles.versionTag}> · v{APP_LAYOUT_VERSION}</Text>
-            ) : null}
+        {city ? (
+          <Text style={styles.cityHint}>
+            Área de {city.name} · até {maxRadiusKm} km
           </Text>
-          <CitySearchPicker
-            cities={nearbyCities.length > 0 ? nearbyCities : operatingCities}
-            selectedCityId={city?.id}
-            loading={citiesLoading || nearbyLoading}
-            locating={locating}
-            maxRadiusKm={maxRadiusKm}
-            gpsOutsideArea={gpsOutsideArea}
-            listMaxHeight={layout.cityListMaxHeight}
-            collapsed={cityLocked}
-            onExpand={() => {
-              setCityLocked(false);
-              setDestination('');
-              setDestinationPoint(null);
-              setSuggestions([]);
-              setGeocodeError(null);
-            }}
-            error={citiesError}
-            onRetry={() => {
-              void (async () => {
-                await loadOperatingCities();
-                await loadNearbyCities();
-              })();
-            }}
-            onSelect={(item) => void selectOperatingCity(item)}
-          />
-          {city && cityLocked ? (
-            <Text style={styles.cityHint}>
-              Área de {city.name} · até {maxRadiusKm} km
-            </Text>
-          ) : null}
-          <View style={styles.routeRow}>
-            <View style={[styles.routeBadge, styles.routeBadgeFrom]}>
-              <Text style={styles.routeBadgeText}>Início</Text>
-            </View>
-            <View style={styles.routeOriginCol}>
-              <Text style={[styles.routeValue, styles.routeValueText]} numberOfLines={2}>
-                {pickupLabel ?? 'Minha localização'}
-              </Text>
-              {cityLocked ? (
-                <MapLocateButton
-                  variant="inline"
-                  label="Minha localização"
-                  onPress={centerOnUser}
-                  loading={locating}
-                />
-              ) : null}
-            </View>
-          </View>
-        </>
-      ) : (
-        <View style={styles.searchHeader}>
-          <Text style={styles.searchTitle}>Para onde vamos?</Text>
-          {city && cityLocked ? (
-            <View style={styles.compactContext}>
-              <View style={styles.searchOriginRow}>
-                <View style={[styles.routeBadge, styles.routeBadgeFrom, styles.searchBadge]}>
-                  <Text style={styles.routeBadgeText}>Início</Text>
-                </View>
-                <Text style={styles.compactOrigin} numberOfLines={1}>
-                  {pickupLabel ?? 'Minha localização'}
-                </Text>
-              </View>
-            </View>
-          ) : null}
-        </View>
-      )}
+        ) : null}
 
-      <View style={[styles.routeRow, compactSearch && styles.searchDestinationRow]}>
-        {!compactSearch ? (
+        <View style={styles.routeRow}>
+          <View style={[styles.routeBadge, styles.routeBadgeFrom]}>
+            <Text style={styles.routeBadgeText}>De</Text>
+          </View>
+          <Text style={styles.routeValue} numberOfLines={2}>
+            {pickupLabel ?? 'Minha localização'}
+          </Text>
+        </View>
+
+        <View style={styles.routeRow}>
           <View style={[styles.routeBadge, styles.routeBadgeTo]}>
-            <Text style={styles.routeBadgeText}>Destino</Text>
+            <Text style={styles.routeBadgeText}>Para</Text>
           </View>
-        ) : (
-          <View style={[styles.routeBadge, styles.routeBadgeTo, styles.searchBadge]}>
-            <Text style={styles.routeBadgeText}>Destino</Text>
+          <View style={styles.routeInputWrap}>
+            <TextInput
+              style={styles.routeInput}
+              placeholder="Buscar endereço"
+              placeholderTextColor={theme.textMuted}
+              value={destination}
+              onChangeText={(text) => {
+                setDestination(text);
+                if (destinationPoint && text !== destinationPoint.label) {
+                  setDestinationPoint(null);
+                  setPickupPoint(null);
+                  setPickupLabel(null);
+                  setFareEstimate(null);
+                }
+              }}
+            />
+            {destinationPoint ? (
+              <Pressable style={styles.clearBtn} onPress={clearDestination}>
+                <Text style={styles.clearBtnText}>✕</Text>
+              </Pressable>
+            ) : null}
           </View>
-        )}
-        <View
-          ref={destinationAnchorRef}
-          style={[styles.routeInputWrap, compactSearch && styles.searchInputWrap]}
-          collapsable={false}
-        >
-          <TextInput
-            style={[
-              styles.routeInput,
-              compactSearch && styles.searchRouteInput,
-              !cityLocked && styles.routeInputDisabled,
-            ]}
-            placeholder={
-              cityLocked ? 'Buscar endereço de destino' : 'Selecione a cidade acima primeiro'
-            }
-            placeholderTextColor={theme.textMuted}
-            editable={cityLocked}
-            value={destination}
-            onFocus={() => setDestinationFocused(true)}
-            onBlur={() => {
-              setTimeout(() => setDestinationFocused(false), 150);
-            }}
-            onChangeText={(text) => {
-              setDestination(text);
-              if (destinationPoint && text !== destinationPoint.label) {
-                setDestinationPoint(null);
-                setPickupPoint(null);
-                setPickupLabel(null);
-                setFareEstimate(null);
-              }
-            }}
-          />
-          {destinationPoint ? (
-            <Pressable style={styles.clearBtn} onPress={clearDestination}>
-              <Text style={styles.clearBtnText}>✕</Text>
-            </Pressable>
-          ) : null}
         </View>
-      </View>
-      {searching ? <ActivityIndicator color={theme.ink} style={{ marginBottom: 8 }} /> : null}
-      {geocodeError ? <Text style={styles.inlineError}>{geocodeError}</Text> : null}
-      {suggestions.length > 0 && !destinationPoint ? (
-        <AddressSuggestions
-          items={suggestions}
-          onSelect={selectDestination}
-          anchorRef={destinationAnchorRef}
-        />
-      ) : null}
-      {estimating ? (
-        <ActivityIndicator color={theme.mint} style={{ marginBottom: 8 }} />
-      ) : null}
-      {estimateError ? <Text style={styles.inlineError}>{estimateError}</Text> : null}
-      {fareEstimate && fareEstimate.fare > 0 ? (
-        <View style={styles.fareBox}>
-          <Text style={styles.fareTitle}>Estimativa</Text>
-          <Text style={styles.fareValue}>{formatBrl(fareEstimate.fare)}</Text>
-          <Text style={styles.fareMeta}>
-            {fareEstimate.distanceKm.toFixed(1)} km · ~{fareEstimate.durationMin} min
-          </Text>
-          <Text style={styles.fareMeta}>
-            Bandeirada {formatBrl(Number(city?.base_fare ?? 0))} +{' '}
-            {formatBrl(Number(city?.price_per_km ?? 0))}/km
-          </Text>
-        </View>
-      ) : null}
-      {!compactSearch || destinationPoint ? (
-        <Pressable style={styles.button} onPress={requestRide} disabled={loading || !canRequestRide}>
+        {searching ? <ActivityIndicator color={theme.ink} style={{ marginBottom: 8 }} /> : null}
+        {geocodeError ? <Text style={styles.inlineError}>{geocodeError}</Text> : null}
+        {suggestions.length > 0 ? (
+          <View style={styles.suggestions}>
+            {suggestions.map((item) => (
+              <Pressable
+                key={`${item.latitude}-${item.longitude}`}
+                style={styles.suggestionItem}
+                onPress={() => selectDestination(item)}
+              >
+                <Text style={styles.suggestionText} numberOfLines={2}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        {estimating ? (
+          <ActivityIndicator color={theme.mint} style={{ marginBottom: 8 }} />
+        ) : null}
+        {estimateError ? <Text style={styles.inlineError}>{estimateError}</Text> : null}
+        {fareEstimate && fareEstimate.fare > 0 ? (
+          <View style={styles.fareBox}>
+            <Text style={styles.fareTitle}>Estimativa</Text>
+            <Text style={styles.fareValue}>{formatBrl(fareEstimate.fare)}</Text>
+            <Text style={styles.fareMeta}>
+              {fareEstimate.distanceKm.toFixed(1)} km · ~{fareEstimate.durationMin} min
+            </Text>
+            <Text style={styles.fareMeta}>
+              Bandeirada {formatBrl(Number(city?.base_fare ?? 0))} +{' '}
+              {formatBrl(Number(city?.price_per_km ?? 0))}/km
+            </Text>
+          </View>
+        ) : null}
+        <Pressable style={styles.button} onPress={requestRide} disabled={loading || Boolean(areaError)}>
           {loading ? (
             <ActivityIndicator color={theme.ink} />
           ) : (
             <Text style={styles.buttonText}>Pedir corrida</Text>
           )}
         </Pressable>
-      ) : null}
-    </>
-  );
-
-  const Root = Platform.OS === 'web' ? View : SafeAreaView;
-  const rootProps =
-    Platform.OS === 'web' ? {} : ({ edges: ['top'] as const } satisfies { edges: ('top')[] });
-
-  if (Platform.OS === 'web' && compactSearch) {
-    const mapH = viewport.keyboardOpen ? 0 : layout.searchMapHeight;
-    const panelTop = viewport.offsetTop + mapH;
-    const panelHeight = Math.max(220, viewport.height - mapH);
-
-    return (
-      <Root style={styles.container} {...rootProps}>
-        {mapH > 0 ? (
-          <View
-            style={[
-              styles.webSearchMap,
-              { top: viewport.offsetTop, height: mapH },
-            ]}
-          >
-            <AppMap
-              style={styles.map}
-              region={mapRegion}
-              onRegionChangeComplete={destinationPoint ? undefined : handleRegionChangeComplete}
-              pinMode={destinationPoint ? 'marker' : 'center'}
-              fitToCoordinates={fitCoords}
-            >
-              {mapOverlay}
-            </AppMap>
-            <MapLocateButton onPress={centerOnUser} loading={locating} />
-          </View>
-        ) : null}
-        <View
-          style={[
-            styles.webSearchPanel,
-            {
-              top: panelTop,
-              height: panelHeight,
-              borderTopLeftRadius: mapH > 0 ? 20 : 0,
-              borderTopRightRadius: mapH > 0 ? 20 : 0,
-            },
-            viewport.keyboardOpen && styles.webSearchPanelKeyboard,
-          ]}
-        >
-          <View
-            style={[
-              styles.webSearchPanelInner,
-              viewport.keyboardOpen && styles.webSearchPanelInnerKeyboard,
-            ]}
-          >
-            {compactSearchBody}
-          </View>
-        </View>
-      </Root>
-    );
-  }
-
-  return (
-    <Root style={styles.container} {...rootProps}>
-      <View style={styles.fill}>
-      <View
-        style={[
-          styles.mapWrap,
-          {
-            height: compactSearch
-              ? layout.searchMapHeight || 0
-              : layout.mapHeight,
-          },
-          compactSearch && !layout.searchMapHeight && styles.mapHidden,
-        ]}
-      >
-        {(compactSearch ? layout.searchMapHeight > 0 : true) ? (
-          <>
-            <AppMap
-              style={styles.map}
-              region={mapRegion}
-              onRegionChangeComplete={destinationPoint ? undefined : handleRegionChangeComplete}
-              pinMode={destinationPoint ? 'marker' : 'center'}
-              fitToCoordinates={fitCoords}
-            >
-              {mapOverlay}
-            </AppMap>
-            <MapLocateButton onPress={centerOnUser} loading={locating} />
-          </>
-        ) : null}
-      </View>
-
-      {Platform.OS === 'web' ? (
-        <ScrollView
-          ref={sheetScrollRef}
-          style={[
-            styles.sheetScroll,
-            styles.sheetScrollWeb,
-            compactSearch ? styles.sheetScrollExpanded : { maxHeight: layout.sheetMaxHeight },
-          ]}
-          contentContainerStyle={[
-            styles.sheet,
-            compactSearch && styles.sheetCompact,
-            compactSearch && { paddingTop: layout.searchContentTopPad },
-            { paddingBottom: layout.safeBottom + 24 },
-          ]}
-          keyboardShouldPersistTaps="always"
-          nestedScrollEnabled
-          horizontal={false}
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
-          {!compactSearch && areaError ? (
-            <View style={styles.areaErrorBannerInline}>
-              <Text style={styles.areaErrorText}>{areaError}</Text>
-            </View>
-          ) : null}
-          {!compactSearch && pickupAreaHint ? (
-            <View style={styles.locationBannerInline}>
-              <Text style={styles.locationBannerText}>{pickupAreaHint}</Text>
-            </View>
-          ) : null}
-          {!compactSearch && locationError ? (
-            <View style={styles.locationBannerInline}>
-              <Text style={styles.locationBannerText}>{locationError}</Text>
-            </View>
-          ) : null}
-          {sheetBody}
-        </ScrollView>
-      ) : (
-        <KeyboardAvoidingView
-          style={styles.sheetScroll}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={layout.keyboardVerticalOffset}
-        >
-          <ScrollView
-            ref={sheetScrollRef}
-            style={compactSearch ? styles.sheetScrollExpanded : { maxHeight: layout.sheetMaxHeight }}
-            contentContainerStyle={[
-              styles.sheet,
-              compactSearch && styles.sheetCompact,
-              compactSearch && { paddingTop: layout.searchContentTopPad },
-              { paddingBottom: layout.safeBottom + 16 },
-            ]}
-            keyboardShouldPersistTaps="always"
-            nestedScrollEnabled
-          >
-            {!compactSearch && areaError ? (
-              <View style={styles.areaErrorBannerInline}>
-                <Text style={styles.areaErrorText}>{areaError}</Text>
-              </View>
-            ) : null}
-            {!compactSearch && pickupAreaHint ? (
-              <View style={styles.locationBannerInline}>
-                <Text style={styles.locationBannerText}>{pickupAreaHint}</Text>
-              </View>
-            ) : null}
-            {!compactSearch && locationError ? (
-              <View style={styles.locationBannerInline}>
-                <Text style={styles.locationBannerText}>{locationError}</Text>
-              </View>
-            ) : null}
-            {sheetBody}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      )}
-      </View>
-    </Root>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.bg, width: '100%', maxWidth: '100%', overflow: 'hidden' },
-  fill: { flex: 1, width: '100%', maxWidth: '100%', overflow: 'hidden' },
-  mapWrap: { position: 'relative', flexShrink: 0, width: '100%', overflow: 'hidden' },
-  map: { flex: 1, width: '100%' },
+  container: { flex: 1, backgroundColor: theme.bg, minHeight: '100%' as unknown as number },
+  mapWrap: { flex: 1, minHeight: 280, maxHeight: '58%' as unknown as number, position: 'relative' },
+  map: { flex: 1, minHeight: 240 },
   locationBanner: {
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 16,
     paddingVertical: 8,
-  },
-  locationBannerInline: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 10,
   },
   locationBannerText: { color: '#92400E', fontSize: 12, fontWeight: '600' },
   areaErrorBanner: {
@@ -1089,160 +611,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  areaErrorBannerInline: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 10,
-  },
   areaErrorText: { color: '#991B1B', fontSize: 12, fontWeight: '600', lineHeight: 16 },
   sheetScroll: {
-    flexGrow: 1,
+    flexGrow: 0,
     flexShrink: 1,
-    zIndex: 1000,
-    elevation: 12,
-  },
-  sheetScrollWeb: {
-    flex: 1,
-    minHeight: 0,
-    width: '100%',
-  },
-  sheetScrollExpanded: {
-    flex: 1,
-    minHeight: 0,
-    width: '100%',
-    maxHeight: undefined,
-  },
-  sheetCompact: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    marginTop: -14,
-    flexGrow: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 16,
-  },
-  mapHidden: {
-    height: 0,
-    minHeight: 0,
-    overflow: 'hidden',
-  },
-  webSearchMap: {
-    position: 'fixed',
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-    overflow: 'hidden',
-  },
-  webSearchPanel: {
-    position: 'fixed',
-    left: 0,
-    right: 0,
-    zIndex: 2000,
-    backgroundColor: theme.paper,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
-    flexDirection: 'column',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 16,
-  },
-  webSearchPanelKeyboard: {
-    paddingTop: 12,
-    paddingBottom: 12,
-    overflow: 'auto',
-  },
-  webSearchPanelInner: {
-    width: '100%',
-  },
-  webSearchPanelInnerKeyboard: {
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: 0,
-  },
-  searchHeader: {
-    marginBottom: 14,
-  },
-  searchTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: theme.ink,
-    marginBottom: 12,
-  },
-  compactContext: {
-    marginBottom: 4,
-  },
-  searchOriginRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  compactOrigin: {
-    flex: 1,
-    fontSize: 14,
-    color: theme.textSecondary,
-  },
-  searchBadge: {
-    minWidth: 40,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  searchDestinationRow: {
-    marginBottom: 12,
-  },
-  searchInputWrap: {
-    backgroundColor: theme.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: theme.line,
-    minHeight: 50,
-  },
-  searchRouteInput: {
-    fontSize: 16,
-    paddingVertical: 14,
+    maxHeight: '42%' as unknown as number,
   },
   sheet: {
     backgroundColor: theme.paper,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    padding: 16,
+    padding: 18,
     paddingBottom: 24,
-    width: '100%',
-    maxWidth: '100%',
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 8,
   },
   greet: { fontSize: 16, fontWeight: '700', color: theme.ink, marginBottom: 4 },
-  greetCompact: { fontSize: 15, marginBottom: 2 },
-  versionTag: { fontSize: 11, fontWeight: '600', color: theme.textMuted },
   cityPicker: { marginBottom: 10 },
   cityPickerLabel: { fontSize: 12, color: theme.textSecondary, marginBottom: 6, fontWeight: '600' },
-  cityChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  citiesErrorBox: { marginBottom: 8 },
-  retryBtn: {
-    alignSelf: 'flex-start',
-    marginTop: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: theme.mintBg,
-  },
-  retryBtnText: { fontSize: 12, fontWeight: '700', color: theme.mint },
   cityChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: theme.bg,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: theme.line,
   },
@@ -1258,8 +652,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
     gap: 10,
-    width: '100%',
-    maxWidth: '100%',
   },
   routeBadge: {
     minWidth: 44,
@@ -1271,26 +663,17 @@ const styles = StyleSheet.create({
   routeBadgeFrom: { backgroundColor: theme.ink },
   routeBadgeTo: { backgroundColor: theme.danger },
   routeBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  routeOriginCol: {
-    flex: 1,
-    minWidth: 0,
-    gap: 6,
-  },
   routeValue: {
     flex: 1,
-    minWidth: 0,
+    fontSize: 13,
+    color: theme.textSecondary,
     backgroundColor: theme.bg,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 11,
   },
-  routeValueText: {
-    fontSize: 13,
-    color: theme.textSecondary,
-  },
   routeInputWrap: {
     flex: 1,
-    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.bg,
@@ -1299,15 +682,10 @@ const styles = StyleSheet.create({
   },
   routeInput: {
     flex: 1,
-    minWidth: 0,
-    fontSize: 16,
+    fontSize: 13,
     color: theme.ink,
     paddingHorizontal: 12,
     paddingVertical: 11,
-  },
-  routeInputDisabled: {
-    color: theme.textMuted,
-    opacity: 0.85,
   },
   clearBtn: {
     marginLeft: 8,
@@ -1320,6 +698,20 @@ const styles = StyleSheet.create({
   },
   clearBtnText: { fontSize: 14, color: theme.textSecondary, fontWeight: '700' },
   inlineError: { color: theme.danger, fontSize: 12, marginBottom: 8 },
+  suggestions: {
+    maxHeight: 120,
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: theme.bg,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.line,
+  },
+  suggestionText: { fontSize: 13, color: theme.ink },
   fareBox: {
     backgroundColor: theme.mintBg,
     borderRadius: 12,

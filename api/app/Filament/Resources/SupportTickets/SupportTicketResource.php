@@ -18,6 +18,10 @@ class SupportTicketResource extends Resource
 {
     protected static ?string $model = SupportTicket::class;
 
+    protected static ?string $modelLabel = 'Chamado';
+
+    protected static ?string $pluralModelLabel = 'Chamados';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     public static function form(Schema $schema): Schema

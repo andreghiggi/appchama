@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Vehicle extends Model
 {
+    use \App\Models\Concerns\BelongsToTenant;
     use HasUuids;
 
     protected $fillable = [
@@ -22,5 +23,10 @@ class Vehicle extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(Driver::class, 'driver_id', 'user_id');
+    }
+
+    public function tenantIdFromParent(): ?string
+    {
+        return \App\Models\Driver::withoutGlobalScopes()->where('user_id', $this->driver_id)->value('tenant_id');
     }
 }
