@@ -1,9 +1,12 @@
+import { Platform } from 'react-native';
 import * as Location from 'expo-location';
 
 export type Coords = { latitude: number; longitude: number };
 
+// No app de celular (React Native) "window" e "navigator" também existem, mas sem geolocation:
+// só é navegador de verdade quando a plataforma é 'web'.
 function isWeb(): boolean {
-  return typeof window !== 'undefined' && typeof navigator !== 'undefined';
+  return Platform.OS === 'web' && typeof navigator !== 'undefined';
 }
 
 function webGeolocation(): Promise<Coords> {
