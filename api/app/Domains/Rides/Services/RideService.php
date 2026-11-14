@@ -178,11 +178,23 @@ class RideService
     {
         $status = $user->isDriver() ? 'canceled_by_driver' : 'canceled_by_passenger';
 
+        // Valida ANTES de mexer em qualquer estado: antes, um cancelamento recusado
+        // liberava o motorista no Redis e devolvia erro 500, deixando a corrida "presa" na tela.
+        try {
+            $this->transition($ride, $status, ['canceled_reason' => $reason]);
+        } catch (InvalidArgumentException) {
+            $fresh = $ride->fresh();
+            if ($fresh && str_starts_with((string) $fresh->status, 'canceled')) {
+                return $fresh->load(self::RIDE_RELATIONS); // já estava cancelada: resposta idempotente
+            }
+            abort(422, $fresh?->status === 'awaiting_payment'
+                ? 'A corrida já foi finalizada e está aguardando pagamento; não dá mais para cancelar.'
+                : 'Esta corrida não pode mais ser cancelada.');
+        }
+
         if ($ride->driver_id) {
             $this->driverLocation->setStatus($ride->driver_id, 'available');
         }
-
-        $this->transition($ride, $status, ['canceled_reason' => $reason]);
 
         return $ride->fresh(self::RIDE_RELATIONS);
     }

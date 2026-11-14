@@ -49,6 +49,9 @@ Route::prefix('v1')->middleware(['tenant'])->group(function () {
         Route::post('/rides/{ride}/payment-method', [RidePaymentController::class, 'chooseMethod']);
         Route::post('/rides/{ride}/confirm-direct-payment', [RidePaymentController::class, 'confirmDirect']);
 
+        Route::post('/devices', [\App\Http\Controllers\Api\DeviceTokenController::class, 'store']);
+        Route::delete('/devices', [\App\Http\Controllers\Api\DeviceTokenController::class, 'destroy']);
+        Route::get('/drivers/nearby', [DriverController::class, 'nearby']);
         Route::post('/drivers/location', [DriverController::class, 'updateLocation']);
         Route::post('/drivers/registration-code/confirm', [DriverController::class, 'confirmRegistrationCode']);
         Route::post('/drivers/online', [DriverController::class, 'goOnline']);

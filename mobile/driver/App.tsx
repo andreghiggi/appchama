@@ -15,6 +15,7 @@ import PendingApprovalScreen from './src/screens/PendingApprovalScreen';
 import type { Ride, User } from '../shared/types';
 import { theme } from '../shared/theme';
 import { useActiveRideRecovery } from '../shared/useActiveRide';
+import { registrarPush } from '../shared/push';
 
 const Stack = createNativeStackNavigator();
 const queryClient = new QueryClient();
@@ -27,6 +28,11 @@ function driverNeedsApproval(user: User): boolean {
 
 function MainApp() {
   const { user, loading } = useAuth();
+
+  // Registra o aparelho para receber notificações (nova corrida, motorista chegou, cancelamento...).
+  useEffect(() => {
+    if (user) void registrarPush();
+  }, [user?.id]);
   const [offer, setOffer] = useState<{ ride: Ride; expiresIn: number } | null>(null);
   const [activeRideId, setActiveRideId] = useState<string | null>(null);
   const [showWallet, setShowWallet] = useState(false);

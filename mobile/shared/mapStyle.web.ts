@@ -4,6 +4,7 @@ import { MAP_LAND_COLOR, MAP_ROUTE_COLOR, MAP_WATER_COLOR } from './mapStyle';
 
 function markerHtml(variant: MarkerVariant): string {
   switch (variant) {
+    case 'car':
     case 'driver':
       return `
         <div style="position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center">

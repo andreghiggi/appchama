@@ -23,7 +23,7 @@ import { MapLocateButton } from '../../../shared/MapLocateButton';
 import {
   resolvePickupPoint,
 } from '../../../shared/serviceArea';
-import { AppMap, AppMarker, AppRoute } from '../../../shared/SimpleMap';
+import { AppMap, AppMarker, AppNearbyCars, AppRoute, type NearbyCar } from '../../../shared/SimpleMap';
 import { theme } from '../../../shared/theme';
 import type { City, Ride } from '../../../shared/types';
 import { useAuth } from '../context/AuthContext';
@@ -68,6 +68,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   const [operatingCities, setOperatingCities] = useState<City[]>([]);
   const [cityLocked, setCityLocked] = useState(false);
   const [fareEstimate, setFareEstimate] = useState<RideEstimate | null>(null);
+  const [nearbyCars, setNearbyCars] = useState<NearbyCar[]>([]);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const regionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -233,6 +234,27 @@ export default function HomeScreen({ onRideActive }: Props) {
       if (regionTimer.current) clearTimeout(regionTimer.current);
     };
   }, []);
+
+  // Carrinhos dos motoristas livres perto do embarque, atualizados a cada 5 s.
+  const pickupLat = Math.round(activePickup.latitude * 1000) / 1000;
+  const pickupLng = Math.round(activePickup.longitude * 1000) / 1000;
+  useEffect(() => {
+    let vivo = true;
+    const buscar = async () => {
+      try {
+        const { drivers } = await api.nearbyDrivers(pickupLat, pickupLng, 5);
+        if (vivo) setNearbyCars(drivers);
+      } catch {
+        /* sem rede: mantém os carrinhos anteriores */
+      }
+    };
+    void buscar();
+    const timer = setInterval(buscar, 5000);
+    return () => {
+      vivo = false;
+      clearInterval(timer);
+    };
+  }, [pickupLat, pickupLng]);
 
   useEffect(() => {
     (async () => {
@@ -454,10 +476,17 @@ export default function HomeScreen({ onRideActive }: Props) {
           pinMode={destinationPoint ? 'marker' : 'center'}
           fitToCoordinates={fitCoords}
         >
+          <AppNearbyCars cars={nearbyCars} />
           {destinationPoint ? (
             <>
               <AppMarker coordinate={activePickup} title="Embarque" variant="origin" />
-              <AppMarker coordinate={destinationPoint} title="Destino" variant="destination" />
+              <AppMarker
+                coordinate={destinationPoint}
+                title="Destino"
+                variant="destination"
+                etaMin={fareEstimate?.durationMin ?? null}
+                label="Chegada"
+              />
               <AppRoute coordinates={routePoints} />
             </>
           ) : null}

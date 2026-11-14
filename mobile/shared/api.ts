@@ -149,6 +149,18 @@ export const api = {
 
   getRide: (id: string) => request<Ride>(`/rides/${id}`),
 
+  /** Carrinhos livres perto do ponto (anônimos) para o mapa do passageiro. */
+  nearbyDrivers: (lat: number, lng: number, radiusKm = 5) =>
+    request<{ drivers: { id: string; latitude: number; longitude: number }[] }>(
+      `/drivers/nearby?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`,
+    ),
+
+  registerDevice: (token: string, platform: string) =>
+    request<{ registrado: boolean }>('/devices', { method: 'POST', body: JSON.stringify({ token, platform }) }),
+
+  unregisterDevice: (token: string) =>
+    request<{ removido: boolean }>('/devices', { method: 'DELETE', body: JSON.stringify({ token }) }),
+
   getActiveRide: () => request<{ ride: Ride | null }>('/rides/active'),
 
   listRides: () => request<{ data: Ride[] }>('/rides'),

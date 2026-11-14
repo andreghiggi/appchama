@@ -30,6 +30,7 @@
     },
     "plugins": [
       "expo-asset",
+      "expo-notifications",
       "expo-font",
       [
         "expo-location",

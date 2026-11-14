@@ -141,6 +141,8 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
             coordinate={{ latitude: destLat, longitude: destLng }}
             title="Destino"
             variant="destination"
+            etaMin={ride.status === 'in_progress' && ride.driver_eta_min != null ? Number(ride.driver_eta_min) : null}
+            label={ride.status === 'in_progress' ? 'Chegada' : undefined}
           />
           {showDriverOnMap ? (
             <AppMarker coordinate={driverLoc!} title="Motorista" variant="driver" />

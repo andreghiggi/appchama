@@ -71,6 +71,11 @@ function aplicar(config, app, appDir) {
     android.config = { googleMaps: { apiKey: process.env.GOOGLE_MAPS_API_KEY } };
   }
 
+  // Push no Android (FCM): o arquivo do Firebase vem do EAS (variável do tipo arquivo), nunca do repositório.
+  if (process.env.GOOGLE_SERVICES_JSON) {
+    android.googleServicesFile = process.env.GOOGLE_SERVICES_JSON;
+  }
+
   return {
     ...config,
     name: nome,
