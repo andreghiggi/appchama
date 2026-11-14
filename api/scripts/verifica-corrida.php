@@ -116,6 +116,37 @@ try {
         $check('passageiro abre os detalhes da corrida', $s === 200, "status=$s");
     }
 
+    echo "== 3b. Motorista cancela: a corrida volta a procurar outro; carrinhos e push\n";
+    [$s, $j, $raw] = $api('POST', '/rides', $trajeto, $tokP);
+    $rid2 = $j['id'] ?? $j['ride']['id'] ?? null;
+    $check('segunda corrida criada', $s === 202 && $rid2, "status=$s ".substr($raw, 0, 160));
+    if ($rid2) {
+        foreach (['currentTenantId', 'tenantFromHost'] as $k) { app()->forgetInstance($k); }
+        app()->call([new \App\Jobs\MatchDriverJob($rid2), 'handle']);
+        [$s] = $api('POST', "/rides/$rid2/accept", [], $tokM);
+        $check('motorista aceita a segunda corrida', $s === 200, "status=$s");
+        [$s, $j, $raw] = $api('POST', "/rides/$rid2/cancel", ['reason' => 'teste'], $tokM);
+        $r2 = Ride::query()->withoutGlobalScopes()->find($rid2);
+        $check('cancelamento do motorista responde 200', $s === 200, "status=$s ".substr($raw, 0, 200));
+        $check('corrida volta a procurar motorista (nao morre) e fica sem motorista', $r2->status === 'searching' && $r2->driver_id === null, 'status='.$r2->status);
+        $declinados = app(\App\Domains\Rides\Services\RideOfferService::class)->declinedBy($rid2);
+        $check('quem cancelou nao recebe a mesma corrida de novo', in_array($drvUser->id, $declinados, true));
+        [$s, $j] = $api('GET', '/rides/active', [], $tokP);
+        $check('passageiro continua com a corrida ativa (procurando)', $s === 200 && ($j['ride']['id'] ?? null) === $rid2);
+        // cancelar de novo uma corrida que nao e mais dele: 422 claro, nunca 500
+        [$s] = $api('POST', "/rides/{$ride->id}/cancel", [], $tokM);
+        $check('cancelar corrida ja finalizada devolve 422 (nao 500)', $s === 422, "status=$s");
+    }
+    [$s, $j, $raw] = $api('GET', '/drivers/nearby?lat=-29.2356&lng=-51.8711&radius_km=5', [], $tokP);
+    $check('passageiro consulta carrinhos por perto', $s === 200 && isset($j['drivers']), "status=$s ".substr($raw, 0, 160));
+    $check('carrinhos nao expoem id real, nome nem telefone', ! str_contains($raw, $drvUser->id) && ! str_contains($raw, '51977000001') && ! str_contains($raw, 'Motorista Teste'));
+    [$s] = $api('POST', '/devices', ['token' => 'ExponentPushToken[teste-verificacao]', 'platform' => 'android'], $tokP);
+    $check('aparelho registra o token de push', $s === 200, "status=$s");
+    [$s] = $api('POST', '/devices', ['token' => 'qualquer-coisa'], $tokP);
+    $check('token de push invalido e recusado (422)', $s === 422, "status=$s");
+    [$s] = $api('DELETE', '/devices', ['token' => 'ExponentPushToken[teste-verificacao]'], $tokP);
+    $check('aparelho remove o token ao sair', $s === 200, "status=$s");
+
     echo "== 4. Isolamento entre marcas
 ";
     $pDemo = User::query()->withoutGlobalScopes()->where('role', 'passenger')->where('tenant_id', Tenant::query()->where('slug', 'chama-demo')->value('id'))->first();
