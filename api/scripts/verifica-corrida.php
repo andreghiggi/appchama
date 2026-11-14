@@ -131,8 +131,8 @@ try {
         $check('corrida volta a procurar motorista (nao morre) e fica sem motorista', $r2->status === 'searching' && $r2->driver_id === null, 'status='.$r2->status);
         $declinados = app(\App\Domains\Rides\Services\RideOfferService::class)->declinedBy($rid2);
         $check('quem cancelou nao recebe a mesma corrida de novo', in_array($drvUser->id, $declinados, true));
-        [$s, $j] = $api('GET', '/rides/active', [], $tokP);
-        $check('passageiro continua com a corrida ativa (procurando)', $s === 200 && ($j['ride']['id'] ?? null) === $rid2);
+        [$s, $j] = $api('GET', '/rides/'.$rid2, [], $tokP);
+        $check('passageiro ve a corrida de novo em busca de motorista', $s === 200 && ($j['status'] ?? null) === 'searching' && empty($j['driver_id']));
         // cancelar de novo uma corrida que nao e mais dele: 422 claro, nunca 500
         [$s] = $api('POST', "/rides/{$ride->id}/cancel", [], $tokM);
         $check('cancelar corrida ja finalizada devolve 422 (nao 500)', $s === 422, "status=$s");
