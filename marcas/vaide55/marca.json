@@ -8,12 +8,14 @@
     "passageiro": {
       "nome": "Vai de 55",
       "pacote": "com.vaide55.passageiro",
-      "eas_project_id": "d04677c4-5359-41cd-9eb2-0ee74d425d3c"
+      "eas_project_id": "d04677c4-5359-41cd-9eb2-0ee74d425d3c",
+      "versao_codigo": 3
     },
     "motorista": {
       "nome": "Vai de 55 Motorista",
       "pacote": "com.vaide55.motorista",
-      "eas_project_id": "c22aa6c8-34a7-4038-8f1b-8cf1b5bb86ea"
+      "eas_project_id": "c22aa6c8-34a7-4038-8f1b-8cf1b5bb86ea",
+      "versao_codigo": 3
     }
   },
   "assets": {
@@ -31,6 +33,7 @@
   },
   "observacoes": "Identidade vinda da pasta de identidade visual do dono (13/11/2026). Contatos e textos legais: a preencher pelo dono. Nomes nas lojas a confirmar.",
   "tagline": "Viu passar? Só chamar!",
+  "centro_mapa": { "latitude": -29.2356, "longitude": -51.8711 },
   "tema": {
     "ink": "#111111",
     "ink2": "#1E1E1E",

@@ -110,8 +110,10 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
     try {
       await api.cancelRide(rideId, 'Cancelado pelo motorista');
       onDone();
-    } catch {
+    } catch (e: unknown) {
+      // Antes o erro era engolido e a corrida ficava na tela sem explicação.
       setLoading(false);
+      Alert.alert('Não foi possível cancelar', e instanceof Error ? e.message : 'Tente novamente.');
     }
   };
 

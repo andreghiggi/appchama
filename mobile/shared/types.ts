@@ -41,6 +41,9 @@ export type Vehicle = {
 export type ApiNumber = number | string;
 
 export type Ride = {
+  canceled_reason?: string | null;
+  requested_at?: string | null;
+  completed_at?: string | null;
   id: string;
   status: string;
   origin_lat: ApiNumber;
@@ -106,6 +109,8 @@ export type RidePaymentInfo = {
 
 export type DriverWalletInfo = {
   balance_available: number;
+  prepaid_balance?: number;
+  prepaid_recharge_minimum?: number;
   total_earnings: number;
   payout_pix_key?: string | null;
   payout_pix_key_type?: string | null;

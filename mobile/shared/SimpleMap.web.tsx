@@ -212,6 +212,9 @@ export function AppMarker({
   coordinate: AnyLatLng;
   title?: string;
   variant?: MarkerVariant;
+  etaMin?: number | null;
+  label?: string;
+  heading?: number;
 }) {
   const map = useContext(MapContext);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -248,6 +251,18 @@ export function AppMarker({
   }, [point?.latitude, point?.longitude]);
 
   return null;
+}
+
+export type NearbyCar = { id: string; latitude: number; longitude: number };
+
+export function AppNearbyCars({ cars }: { cars: NearbyCar[] }) {
+  return (
+    <>
+      {cars.map((c) => (
+        <AppMarker key={c.id} coordinate={c} variant="car" />
+      ))}
+    </>
+  );
 }
 
 export function AppRoute({ coordinates }: { coordinates: AnyLatLng[] }) {

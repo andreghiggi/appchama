@@ -27,7 +27,7 @@ class AsaasWebhookSetupService
         abort_unless($this->client->isConfigured($tenant), 422, 'Configure a API Key Asaas antes.');
 
         $token = $this->ensureToken($tenant);
-        $url = $this->webhookUrl();
+        $url = $this->webhookUrl($tenant);
         $events = [
             'PAYMENT_RECEIVED',
             'PAYMENT_CONFIRMED',
@@ -67,8 +67,14 @@ class AsaasWebhookSetupService
         return $created;
     }
 
-    public function webhookUrl(): string
+    /** Cada marca recebe o aviso do Asaas no próprio endereço de API (ex.: api.vaide55.com.br). */
+    public function webhookUrl(?Tenant $tenant = null): string
     {
+        $host = $tenant?->domains()->where('type', 'api')->value('host');
+        if ($host) {
+            return 'https://'.$host.'/api/v1/webhooks/asaas';
+        }
+
         $base = rtrim(config('services.asaas.webhook_base_url', config('app.api_url', config('app.url'))), '/');
 
         return $base.'/api/v1/webhooks/asaas';

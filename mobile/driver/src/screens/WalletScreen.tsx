@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
+  Image,
+  Share,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../../shared/api';
 import { formatBrl } from '../../../shared/fare';
 import { theme } from '../../../shared/theme';
@@ -21,8 +25,11 @@ type Props = {
 const PIX_TYPES = ['CPF', 'CNPJ', 'EMAIL', 'PHONE', 'EVP'] as const;
 
 export default function WalletScreen({ onBack }: Props) {
+  const insets = useSafeAreaInsets();
   const [wallet, setWallet] = useState<{
     balance_available: number;
+    prepaid_balance?: number;
+    prepaid_recharge_minimum?: number;
     total_earnings: number;
     payout_pix_key?: string | null;
     payout_pix_key_type?: string | null;
@@ -33,6 +40,9 @@ export default function WalletScreen({ onBack }: Props) {
   const [withdrawals, setWithdrawals] = useState<DriverWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [rechargeAmount, setRechargeAmount] = useState('20');
+  const [pix, setPix] = useState<{ qr: string | null; code: string | null; valor: number } | null>(null);
+  const saldoAntesRef = useRef(0);
 
   const load = async () => {
     setLoading(true);
@@ -50,6 +60,52 @@ export default function WalletScreen({ onBack }: Props) {
   useEffect(() => {
     load();
   }, []);
+
+  // Botão voltar do Android também sai da carteira.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onBack]);
+
+  const gerarRecarga = async () => {
+    const valor = parseFloat(rechargeAmount.replace(',', '.'));
+    const minimo = wallet?.prepaid_recharge_minimum ?? 20;
+    if (!valor || valor < minimo) {
+      Alert.alert('Valor inválido', `A recarga mínima é ${formatBrl(minimo)}.`);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      saldoAntesRef.current = wallet?.prepaid_balance ?? 0;
+      const r = await api.rechargeWallet(valor);
+      setPix({ qr: r.pix_qr_code, code: r.pix_copy_paste, valor });
+    } catch (e: unknown) {
+      Alert.alert('Não foi possível gerar o Pix', e instanceof Error ? e.message : 'Tente novamente.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Com o Pix na tela, confere a cada 5 s se o crédito já entrou (o Asaas avisa o servidor quando paga).
+  useEffect(() => {
+    if (!pix) return;
+    const timer = setInterval(async () => {
+      try {
+        const w = await api.getDriverWallet();
+        if ((w.prepaid_balance ?? 0) > saldoAntesRef.current) {
+          setWallet(w);
+          setPix(null);
+          Alert.alert('Pagamento recebido', `Crédito atualizado: ${formatBrl(w.prepaid_balance ?? 0)}.`);
+        }
+      } catch {
+        /* tenta de novo no próximo ciclo */
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [pix]);
 
   const savePix = async () => {
     setSubmitting(true);
@@ -93,12 +149,20 @@ export default function WalletScreen({ onBack }: Props) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Pressable onPress={onBack} style={styles.back}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingTop: 20 + insets.top }]}>
+      <Pressable onPress={onBack} style={styles.back} hitSlop={16}>
         <Text style={styles.backText}>← Voltar</Text>
       </Pressable>
 
       <Text style={styles.title}>Carteira</Text>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Crédito para aceitar corridas</Text>
+        <Text style={styles.balance}>{formatBrl(wallet?.prepaid_balance ?? 0)}</Text>
+        <Text style={styles.hint}>
+          A comissão de cada corrida é descontada daqui. Recarga mínima: {formatBrl(wallet?.prepaid_recharge_minimum ?? 20)}.
+        </Text>
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.label}>Saldo disponível para saque</Text>
@@ -107,6 +171,45 @@ export default function WalletScreen({ onBack }: Props) {
           Total ganho: {formatBrl(wallet?.total_earnings ?? 0)}
         </Text>
       </View>
+
+      <Text style={styles.sectionTitle}>Recarregar crédito por Pix</Text>
+      {pix ? (
+        <View style={styles.card}>
+          <Text style={styles.label}>Pague {formatBrl(pix.valor)} no Pix e aguarde a confirmação</Text>
+          {pix.qr ? (
+            <Image
+              source={{ uri: `data:image/png;base64,${pix.qr}` }}
+              style={{ width: 220, height: 220, alignSelf: 'center', marginVertical: 12 }}
+            />
+          ) : null}
+          {pix.code ? (
+            <>
+              <Text style={styles.hint} selectable numberOfLines={3}>
+                {pix.code}
+              </Text>
+              <Pressable style={styles.btnSecondary} onPress={() => void Share.share({ message: pix.code ?? '' })}>
+                <Text style={styles.btnSecondaryText}>Copiar / compartilhar código Pix</Text>
+              </Pressable>
+            </>
+          ) : null}
+          <Pressable style={styles.btnSecondary} onPress={() => setPix(null)}>
+            <Text style={styles.btnSecondaryText}>Fechar</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="Valor da recarga (R$)"
+            value={rechargeAmount}
+            onChangeText={setRechargeAmount}
+            keyboardType="decimal-pad"
+          />
+          <Pressable style={styles.btn} onPress={gerarRecarga} disabled={submitting}>
+            {submitting ? <ActivityIndicator color={theme.ink} /> : <Text style={styles.btnText}>Gerar Pix de recarga</Text>}
+          </Pressable>
+        </>
+      )}
 
       <Text style={styles.sectionTitle}>Chave Pix para saque</Text>
       <TextInput
@@ -164,7 +267,7 @@ export default function WalletScreen({ onBack }: Props) {
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flexGrow: 1, backgroundColor: theme.bg, padding: 20, paddingBottom: 40 },
-  back: { marginBottom: 8 },
+  back: { marginBottom: 8, paddingVertical: 8, alignSelf: 'flex-start' },
   backText: { color: theme.ink, fontWeight: '600' },
   title: { fontSize: 24, fontWeight: '700', color: theme.ink, marginBottom: 16 },
   card: {

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,11 +21,12 @@ import {
 } from '../../../shared/geocode';
 import { formatBrl } from '../../../shared/fare';
 import { requestCurrentLocation } from '../../../shared/location';
+import { regiaoPadrao } from '../../../shared/mapaPadrao';
 import { MapLocateButton } from '../../../shared/MapLocateButton';
 import {
   resolvePickupPoint,
 } from '../../../shared/serviceArea';
-import { AppMap, AppMarker, AppRoute } from '../../../shared/SimpleMap';
+import { AppMap, AppMarker, AppNearbyCars, AppRoute, type NearbyCar } from '../../../shared/SimpleMap';
 import { theme } from '../../../shared/theme';
 import type { City, Ride } from '../../../shared/types';
 import { useAuth } from '../context/AuthContext';
@@ -41,12 +44,7 @@ type RideEstimate = {
 
 export default function HomeScreen({ onRideActive }: Props) {
   const { user } = useAuth();
-  const [region, setRegion] = useState({
-    latitude: -23.5505,
-    longitude: -46.6333,
-    latitudeDelta: 0.04,
-    longitudeDelta: 0.04,
-  });
+  const [region, setRegion] = useState(() => regiaoPadrao());
   const [pickupPoint, setPickupPoint] = useState<{ latitude: number; longitude: number } | null>(
     null,
   );
@@ -68,6 +66,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   const [operatingCities, setOperatingCities] = useState<City[]>([]);
   const [cityLocked, setCityLocked] = useState(false);
   const [fareEstimate, setFareEstimate] = useState<RideEstimate | null>(null);
+  const [nearbyCars, setNearbyCars] = useState<NearbyCar[]>([]);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const regionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -170,9 +169,10 @@ export default function HomeScreen({ onRideActive }: Props) {
   ) => {
     const { pickup, usedCityCenter } = resolvePickupPoint(coords, activeCity);
     setRegion((r) => ({
-      ...r,
       latitude: pickup.latitude,
       longitude: pickup.longitude,
+      latitudeDelta: Math.min(r.latitudeDelta ?? 0.04, 0.08),
+      longitudeDelta: Math.min(r.longitudeDelta ?? 0.04, 0.08),
     }));
     if (!destinationPoint) {
       setPickupPoint(null);
@@ -196,9 +196,10 @@ export default function HomeScreen({ onRideActive }: Props) {
         await applyPickup(coords, activeCity);
       } else {
         setRegion((r) => ({
-          ...r,
           latitude: coords.latitude,
           longitude: coords.longitude,
+          latitudeDelta: Math.min(r.latitudeDelta ?? 0.04, 0.08),
+          longitudeDelta: Math.min(r.longitudeDelta ?? 0.04, 0.08),
         }));
         if (!destinationPoint) {
           setPickupPoint(null);
@@ -233,6 +234,27 @@ export default function HomeScreen({ onRideActive }: Props) {
       if (regionTimer.current) clearTimeout(regionTimer.current);
     };
   }, []);
+
+  // Carrinhos dos motoristas livres perto do embarque, atualizados a cada 5 s.
+  const pickupLat = Math.round(activePickup.latitude * 1000) / 1000;
+  const pickupLng = Math.round(activePickup.longitude * 1000) / 1000;
+  useEffect(() => {
+    let vivo = true;
+    const buscar = async () => {
+      try {
+        const { drivers } = await api.nearbyDrivers(pickupLat, pickupLng, 5);
+        if (vivo) setNearbyCars(drivers);
+      } catch {
+        /* sem rede: mantém os carrinhos anteriores */
+      }
+    };
+    void buscar();
+    const timer = setInterval(buscar, 5000);
+    return () => {
+      vivo = false;
+      clearInterval(timer);
+    };
+  }, [pickupLat, pickupLng]);
 
   useEffect(() => {
     (async () => {
@@ -454,10 +476,17 @@ export default function HomeScreen({ onRideActive }: Props) {
           pinMode={destinationPoint ? 'marker' : 'center'}
           fitToCoordinates={fitCoords}
         >
+          <AppNearbyCars cars={nearbyCars} />
           {destinationPoint ? (
             <>
               <AppMarker coordinate={activePickup} title="Embarque" variant="origin" />
-              <AppMarker coordinate={destinationPoint} title="Destino" variant="destination" />
+              <AppMarker
+                coordinate={destinationPoint}
+                title="Destino"
+                variant="destination"
+                etaMin={fareEstimate?.durationMin ?? null}
+                label="Chegada"
+              />
               <AppRoute coordinates={routePoints} />
             </>
           ) : null}
@@ -478,6 +507,11 @@ export default function HomeScreen({ onRideActive }: Props) {
       {locationError ? (
         <View style={styles.locationBanner}>
           <Text style={styles.locationBannerText}>{locationError}</Text>
+          {Platform.OS !== 'web' ? (
+            <Pressable style={styles.locationBtn} onPress={() => void Linking.openSettings()} hitSlop={8}>
+              <Text style={styles.locationBtnText}>Ativar localização</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -606,6 +640,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   locationBannerText: { color: '#92400E', fontSize: 12, fontWeight: '600' },
+  locationBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#92400E',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  locationBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   areaErrorBanner: {
     backgroundColor: '#FEE2E2',
     paddingHorizontal: 16,

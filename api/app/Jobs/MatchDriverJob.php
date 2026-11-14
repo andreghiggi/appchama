@@ -128,6 +128,14 @@ class MatchDriverJob implements ShouldQueue
         return $candidate;
     }
 
+    /** Zera a memória da busca (janela de 3 min, quem já foi abordado) para uma nova rodada da mesma corrida. */
+    public static function resetState(string $rideId): void
+    {
+        foreach (['offered', 'search_started', 'offer_seq', 'current_offer'] as $parte) {
+            Cache::forget("ride:{$rideId}:{$parte}");
+        }
+    }
+
     private function releaseCurrentOffer(RideOfferService $offerService): void
     {
         $current = Cache::get($this->currentKey());

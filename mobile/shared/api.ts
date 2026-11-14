@@ -149,9 +149,22 @@ export const api = {
 
   getRide: (id: string) => request<Ride>(`/rides/${id}`),
 
+  /** Carrinhos livres perto do ponto (anônimos) para o mapa do passageiro. */
+  nearbyDrivers: (lat: number, lng: number, radiusKm = 5) =>
+    request<{ drivers: { id: string; latitude: number; longitude: number }[] }>(
+      `/drivers/nearby?lat=${lat}&lng=${lng}&radius_km=${radiusKm}`,
+    ),
+
+  registerDevice: (token: string, platform: string) =>
+    request<{ registrado: boolean }>('/devices', { method: 'POST', body: JSON.stringify({ token, platform }) }),
+
+  unregisterDevice: (token: string) =>
+    request<{ removido: boolean }>('/devices', { method: 'DELETE', body: JSON.stringify({ token }) }),
+
   getActiveRide: () => request<{ ride: Ride | null }>('/rides/active'),
 
-  listRides: () => request<{ data: Ride[] }>('/rides'),
+  listRides: (page = 1) =>
+    request<{ data: Ride[]; current_page?: number; last_page?: number }>(`/rides?page=${page}`),
 
   /** Sem argumento: cidades com corridas (passageiro). 'driver': cidades abertas ao cadastro de motorista. */
   listCities: (forRole?: 'driver') => request<City[]>(forRole === 'driver' ? '/cities?for=driver' : '/cities'),
@@ -256,6 +269,13 @@ export const api = {
     request<Ride>(`/rides/${id}/confirm-direct-payment`, { method: 'POST' }),
 
   getDriverWallet: () => request<DriverWalletInfo>('/drivers/wallet'),
+
+  /** Gera o Pix de recarga do crédito de comissão (mínimo R$ 20). */
+  rechargeWallet: (amount: number) =>
+    request<{ recharge: { id: string; amount: number | string; status: string }; pix_qr_code: string | null; pix_copy_paste: string | null }>(
+      '/drivers/wallet/recharges',
+      { method: 'POST', body: JSON.stringify({ amount }) },
+    ),
 
   updatePayoutAccount: (pixKey: string, pixKeyType: string) =>
     request('/drivers/payout-account', {

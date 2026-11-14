@@ -9,12 +9,14 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import WalletScreen from './src/screens/WalletScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
 import OfferScreen from './src/screens/OfferScreen';
 import ActiveRideScreen from './src/screens/ActiveRideScreen';
 import PendingApprovalScreen from './src/screens/PendingApprovalScreen';
 import type { Ride, User } from '../shared/types';
 import { theme } from '../shared/theme';
 import { useActiveRideRecovery } from '../shared/useActiveRide';
+import { registrarPush } from '../shared/push';
 
 const Stack = createNativeStackNavigator();
 const queryClient = new QueryClient();
@@ -27,9 +29,15 @@ function driverNeedsApproval(user: User): boolean {
 
 function MainApp() {
   const { user, loading } = useAuth();
+
+  // Registra o aparelho para receber notificações (nova corrida, motorista chegou, cancelamento...).
+  useEffect(() => {
+    if (user) void registrarPush();
+  }, [user?.id]);
   const [offer, setOffer] = useState<{ ride: Ride; expiresIn: number } | null>(null);
   const [activeRideId, setActiveRideId] = useState<string | null>(null);
   const [showWallet, setShowWallet] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const canDrive = Boolean(user) && !driverNeedsApproval(user as User);
   const { restoredRide, restoring } = useActiveRideRecovery(canDrive);
@@ -72,6 +80,10 @@ function MainApp() {
     return <WalletScreen onBack={() => setShowWallet(false)} />;
   }
 
+  if (showHistory) {
+    return <HistoryScreen onBack={() => setShowHistory(false)} />;
+  }
+
   if (offer) {
     return (
       <OfferScreen
@@ -94,6 +106,7 @@ function MainApp() {
     <DashboardScreen
       onOffer={(ride, expiresIn) => setOffer({ ride, expiresIn })}
       onOpenWallet={() => setShowWallet(true)}
+      onOpenHistory={() => setShowHistory(true)}
     />
   );
 }

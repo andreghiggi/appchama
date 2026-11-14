@@ -178,13 +178,69 @@ class RideService
     {
         $status = $user->isDriver() ? 'canceled_by_driver' : 'canceled_by_passenger';
 
+        // Motorista cancelou antes de iniciar a viagem: a corrida do passageiro NÃO morre,
+        // volta a procurar outro motorista (sem repetir quem cancelou), como no Uber.
+        if ($user->isDriver() && $ride->driver_id === $user->id && in_array($ride->status, ['accepted', 'driver_arrived'], true)) {
+            return $this->reabrirBusca($ride, $user, $reason);
+        }
+
+        // Valida ANTES de mexer em qualquer estado: antes, um cancelamento recusado
+        // liberava o motorista no Redis e devolvia erro 500, deixando a corrida "presa" na tela.
+        try {
+            $this->transition($ride, $status, ['canceled_reason' => $reason]);
+        } catch (InvalidArgumentException) {
+            $fresh = $ride->fresh();
+            if ($fresh && str_starts_with((string) $fresh->status, 'canceled')) {
+                return $fresh->load(self::RIDE_RELATIONS); // já estava cancelada: resposta idempotente
+            }
+            abort(422, $fresh?->status === 'awaiting_payment'
+                ? 'A corrida já foi finalizada e está aguardando pagamento; não dá mais para cancelar.'
+                : 'Esta corrida não pode mais ser cancelada.');
+        }
+
         if ($ride->driver_id) {
             $this->driverLocation->setStatus($ride->driver_id, 'available');
         }
 
-        $this->transition($ride, $status, ['canceled_reason' => $reason]);
-
         return $ride->fresh(self::RIDE_RELATIONS);
+    }
+
+    private function reabrirBusca(Ride $ride, User $driver, ?string $reason): Ride
+    {
+        DB::transaction(function () use ($ride, $driver, $reason): void {
+            $locked = Ride::query()->whereKey($ride->id)->lockForUpdate()->firstOrFail();
+            if ($locked->driver_id !== $driver->id || ! in_array($locked->status, ['accepted', 'driver_arrived'], true)) {
+                abort(422, 'Esta corrida não pode mais ser cancelada.');
+            }
+            $locked->update([
+                'status' => 'searching',
+                'driver_id' => null,
+                'accepted_at' => null,
+                'canceled_reason' => $reason ? 'Motorista anterior cancelou: '.$reason : 'Motorista anterior cancelou',
+                'requested_at' => now(), // reinicia a janela de busca e a recuperação do app do passageiro
+            ]);
+        });
+
+        $this->driverLocation->setStatus($driver->id, 'available');
+        $this->offerService->markDeclined($ride->id, $driver->id);
+        MatchDriverJob::resetState($ride->id);
+
+        $fresh = $ride->fresh(self::RIDE_RELATIONS);
+        event(new RideStatusChanged($fresh));
+        $this->startMatching($fresh);
+
+        // Aviso ao passageiro (a busca já recomeçou sozinha).
+        app(\App\Domains\Notifications\Services\PushService::class)->toUser(
+            $fresh->passenger_id,
+            'O motorista cancelou',
+            'Já estamos procurando outro motorista para você.',
+            ['tipo' => 'corrida', 'ride_id' => $fresh->id, 'status' => 'searching'],
+        );
+
+        // Para o app de quem cancelou, a corrida acabou.
+        $fresh->setAttribute('status', 'canceled_by_driver');
+
+        return $fresh;
     }
 
     public function rate(Ride $ride, User $user, int $score, ?string $comment = null): void

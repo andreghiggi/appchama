@@ -15,12 +15,18 @@ import RatingScreen from './src/screens/RatingScreen';
 import type { Ride } from '../shared/types';
 import { theme } from '../shared/theme';
 import { useActiveRideRecovery } from '../shared/useActiveRide';
+import { registrarPush } from '../shared/push';
 
 const Tab = createBottomTabNavigator();
 const queryClient = new QueryClient();
 
 function MainApp() {
   const { user, loading, logout } = useAuth();
+
+  // Registra o aparelho para receber notificações (nova corrida, motorista chegou, cancelamento...).
+  useEffect(() => {
+    if (user) void registrarPush();
+  }, [user?.id]);
   const [activeRide, setActiveRide] = useState<Ride | null>(null);
   const [paymentRide, setPaymentRide] = useState<Ride | null>(null);
   const [summaryRide, setSummaryRide] = useState<Ride | null>(null);

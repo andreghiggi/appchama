@@ -30,11 +30,15 @@
     },
     "plugins": [
       "expo-asset",
+      "expo-notifications",
       "expo-font",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Precisamos da sua localização para receber corridas próximas."
+          "locationWhenInUsePermission": "Precisamos da sua localização para receber corridas próximas.",
+          "locationAlwaysAndWhenInUsePermission": "Precisamos da sua localização, mesmo com a tela bloqueada, para você continuar disponível e receber corridas enquanto estiver online.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

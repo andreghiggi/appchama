@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { api, setToken } from '../../../shared/api';
+import { removerPush } from '../../../shared/push';
 import { storage } from '../../../shared/storage';
 import type { User } from '../../../shared/types';
 
@@ -45,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       updateUser: (nextUser) => setUser(nextUser),
       logout: async () => {
+        await removerPush();
         await storage.deleteItem('token');
         setToken(null);
         setUser(null);
