@@ -243,6 +243,13 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
         </View>
       </View>
 
+      <Pressable style={styles.creditCard} onPress={onOpenWallet}>
+        <Text style={styles.statLabel}>Crédito para aceitar corridas</Text>
+        <Text style={styles.statValue}>
+          R$ {Number((dashboard as { prepaid_balance?: number } | undefined)?.prepaid_balance ?? 0).toFixed(2).replace('.', ',')}
+        </Text>
+      </Pressable>
+
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Ganhos hoje</Text>
@@ -314,6 +321,12 @@ const styles = StyleSheet.create({
   toggleActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   statCard: { flex: 1, backgroundColor: theme.paper, borderRadius: 14, padding: 10 },
+  creditCard: {
+    backgroundColor: theme.paper,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
   walletBtn: {
     backgroundColor: theme.paper,
     borderRadius: 12,

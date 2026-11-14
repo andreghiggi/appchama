@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../../shared/api';
 import { formatBrl } from '../../../shared/fare';
 import { theme } from '../../../shared/theme';
@@ -21,8 +23,11 @@ type Props = {
 const PIX_TYPES = ['CPF', 'CNPJ', 'EMAIL', 'PHONE', 'EVP'] as const;
 
 export default function WalletScreen({ onBack }: Props) {
+  const insets = useSafeAreaInsets();
   const [wallet, setWallet] = useState<{
     balance_available: number;
+    prepaid_balance?: number;
+    prepaid_recharge_minimum?: number;
     total_earnings: number;
     payout_pix_key?: string | null;
     payout_pix_key_type?: string | null;
@@ -50,6 +55,15 @@ export default function WalletScreen({ onBack }: Props) {
   useEffect(() => {
     load();
   }, []);
+
+  // Botão voltar do Android também sai da carteira.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onBack]);
 
   const savePix = async () => {
     setSubmitting(true);
@@ -93,12 +107,20 @@ export default function WalletScreen({ onBack }: Props) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Pressable onPress={onBack} style={styles.back}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingTop: 20 + insets.top }]}>
+      <Pressable onPress={onBack} style={styles.back} hitSlop={16}>
         <Text style={styles.backText}>← Voltar</Text>
       </Pressable>
 
       <Text style={styles.title}>Carteira</Text>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Crédito para aceitar corridas</Text>
+        <Text style={styles.balance}>{formatBrl(wallet?.prepaid_balance ?? 0)}</Text>
+        <Text style={styles.hint}>
+          A comissão de cada corrida é descontada daqui. Recarga mínima: {formatBrl(wallet?.prepaid_recharge_minimum ?? 20)}.
+        </Text>
+      </View>
 
       <View style={styles.card}>
         <Text style={styles.label}>Saldo disponível para saque</Text>
@@ -164,7 +186,7 @@ export default function WalletScreen({ onBack }: Props) {
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flexGrow: 1, backgroundColor: theme.bg, padding: 20, paddingBottom: 40 },
-  back: { marginBottom: 8 },
+  back: { marginBottom: 8, paddingVertical: 8, alignSelf: 'flex-start' },
   backText: { color: theme.ink, fontWeight: '600' },
   title: { fontSize: 24, fontWeight: '700', color: theme.ink, marginBottom: 16 },
   card: {

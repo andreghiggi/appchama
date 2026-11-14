@@ -106,6 +106,8 @@ export type RidePaymentInfo = {
 
 export type DriverWalletInfo = {
   balance_available: number;
+  prepaid_balance?: number;
+  prepaid_recharge_minimum?: number;
   total_earnings: number;
   payout_pix_key?: string | null;
   payout_pix_key_type?: string | null;
