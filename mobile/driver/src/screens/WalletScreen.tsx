@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  Image,
+  Share,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,6 +40,9 @@ export default function WalletScreen({ onBack }: Props) {
   const [withdrawals, setWithdrawals] = useState<DriverWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [rechargeAmount, setRechargeAmount] = useState('20');
+  const [pix, setPix] = useState<{ qr: string | null; code: string | null; valor: number } | null>(null);
+  const saldoAntesRef = useRef(0);
 
   const load = async () => {
     setLoading(true);
@@ -64,6 +69,43 @@ export default function WalletScreen({ onBack }: Props) {
     });
     return () => sub.remove();
   }, [onBack]);
+
+  const gerarRecarga = async () => {
+    const valor = parseFloat(rechargeAmount.replace(',', '.'));
+    const minimo = wallet?.prepaid_recharge_minimum ?? 20;
+    if (!valor || valor < minimo) {
+      Alert.alert('Valor inválido', `A recarga mínima é ${formatBrl(minimo)}.`);
+      return;
+    }
+    setSubmitting(true);
+    try {
+      saldoAntesRef.current = wallet?.prepaid_balance ?? 0;
+      const r = await api.rechargeWallet(valor);
+      setPix({ qr: r.pix_qr_code, code: r.pix_copy_paste, valor });
+    } catch (e: unknown) {
+      Alert.alert('Não foi possível gerar o Pix', e instanceof Error ? e.message : 'Tente novamente.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Com o Pix na tela, confere a cada 5 s se o crédito já entrou (o Asaas avisa o servidor quando paga).
+  useEffect(() => {
+    if (!pix) return;
+    const timer = setInterval(async () => {
+      try {
+        const w = await api.getDriverWallet();
+        if ((w.prepaid_balance ?? 0) > saldoAntesRef.current) {
+          setWallet(w);
+          setPix(null);
+          Alert.alert('Pagamento recebido', `Crédito atualizado: ${formatBrl(w.prepaid_balance ?? 0)}.`);
+        }
+      } catch {
+        /* tenta de novo no próximo ciclo */
+      }
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [pix]);
 
   const savePix = async () => {
     setSubmitting(true);
@@ -129,6 +171,45 @@ export default function WalletScreen({ onBack }: Props) {
           Total ganho: {formatBrl(wallet?.total_earnings ?? 0)}
         </Text>
       </View>
+
+      <Text style={styles.sectionTitle}>Recarregar crédito por Pix</Text>
+      {pix ? (
+        <View style={styles.card}>
+          <Text style={styles.label}>Pague {formatBrl(pix.valor)} no Pix e aguarde a confirmação</Text>
+          {pix.qr ? (
+            <Image
+              source={{ uri: `data:image/png;base64,${pix.qr}` }}
+              style={{ width: 220, height: 220, alignSelf: 'center', marginVertical: 12 }}
+            />
+          ) : null}
+          {pix.code ? (
+            <>
+              <Text style={styles.hint} selectable numberOfLines={3}>
+                {pix.code}
+              </Text>
+              <Pressable style={styles.btnSecondary} onPress={() => void Share.share({ message: pix.code ?? '' })}>
+                <Text style={styles.btnSecondaryText}>Copiar / compartilhar código Pix</Text>
+              </Pressable>
+            </>
+          ) : null}
+          <Pressable style={styles.btnSecondary} onPress={() => setPix(null)}>
+            <Text style={styles.btnSecondaryText}>Fechar</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="Valor da recarga (R$)"
+            value={rechargeAmount}
+            onChangeText={setRechargeAmount}
+            keyboardType="decimal-pad"
+          />
+          <Pressable style={styles.btn} onPress={gerarRecarga} disabled={submitting}>
+            {submitting ? <ActivityIndicator color={theme.ink} /> : <Text style={styles.btnText}>Gerar Pix de recarga</Text>}
+          </Pressable>
+        </>
+      )}
 
       <Text style={styles.sectionTitle}>Chave Pix para saque</Text>
       <TextInput

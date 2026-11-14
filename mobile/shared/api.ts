@@ -269,6 +269,13 @@ export const api = {
 
   getDriverWallet: () => request<DriverWalletInfo>('/drivers/wallet'),
 
+  /** Gera o Pix de recarga do crédito de comissão (mínimo R$ 20). */
+  rechargeWallet: (amount: number) =>
+    request<{ recharge: { id: string; amount: number | string; status: string }; pix_qr_code: string | null; pix_copy_paste: string | null }>(
+      '/drivers/wallet/recharges',
+      { method: 'POST', body: JSON.stringify({ amount }) },
+    ),
+
   updatePayoutAccount: (pixKey: string, pixKeyType: string) =>
     request('/drivers/payout-account', {
       method: 'PUT',

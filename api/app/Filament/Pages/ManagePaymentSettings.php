@@ -164,7 +164,7 @@ class ManagePaymentSettings extends Page
 
     public function form(Schema $schema): Schema
     {
-        $webhookUrl = app(AsaasWebhookSetupService::class)->webhookUrl();
+        $webhookUrl = app(AsaasWebhookSetupService::class)->webhookUrl(AppModelsTenant::query()->find(app()->bound("currentTenantId") ? app("currentTenantId") : null));
 
         return $schema->components([
             Section::make('Credenciais Asaas')
