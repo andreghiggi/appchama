@@ -15,7 +15,7 @@ class PushService
     private const ENDPOINT = 'https://exp.host/--/api/v2/push/send';
 
     /** @param  array<string, mixed>  $data */
-    public function toUser(string $userId, string $title, string $body, array $data = []): void
+    public function toUser(string $userId, string $title, string $body, array $data = [], string $canal = 'default', ?int $ttlSegundos = null): void
     {
         $tokens = DeviceToken::withoutGlobalScopes()->where('user_id', $userId)->pluck('token')->all();
         if ($tokens === []) {
@@ -29,7 +29,8 @@ class PushService
             'data' => $data,
             'sound' => 'default',
             'priority' => 'high',
-            'channelId' => 'default',
+            'channelId' => $canal,
+            ...($ttlSegundos ? ['ttl' => $ttlSegundos] : []),
         ], $tokens);
 
         try {

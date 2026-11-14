@@ -41,6 +41,7 @@ export type Vehicle = {
 export type ApiNumber = number | string;
 
 export type Ride = {
+  canceled_reason?: string | null;
   id: string;
   status: string;
   origin_lat: ApiNumber;

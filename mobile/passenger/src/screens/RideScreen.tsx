@@ -167,7 +167,11 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
           <DriverCard ride={ride} subtitle={driverSubtitle} />
         ) : (
           <Text style={styles.driverName}>
-            {isSearching ? 'Procurando motorista próximo...' : 'Nenhum motorista disponível'}
+            {isSearching
+              ? ride.canceled_reason?.startsWith('Motorista anterior')
+                ? 'O motorista cancelou. Procurando outro para você...'
+                : 'Procurando motorista próximo...'
+              : 'Nenhum motorista disponível'}
           </Text>
         )}
 

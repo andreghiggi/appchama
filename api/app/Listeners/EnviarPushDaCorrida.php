@@ -14,7 +14,7 @@ class EnviarPushDaCorrida
     {
         $this->push->toUser($event->driverId, 'Nova corrida', 'Há um passageiro pedindo corrida perto de você. Toque para ver.', [
             'tipo' => 'oferta', 'ride_id' => $event->ride->id,
-        ]);
+        ], 'ofertas', $event->timeoutSeconds); // some depois da janela da oferta: oferta velha não serve
     }
 
     public function handleStatus(RideStatusChanged $event): void

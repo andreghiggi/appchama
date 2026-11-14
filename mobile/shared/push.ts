@@ -32,6 +32,18 @@ export async function registrarPush(): Promise<void> {
       });
     }
 
+    // Ofertas de corrida: som e vibração fortes, aparecem por cima mesmo com o app fechado.
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('ofertas', {
+        name: 'Ofertas de corrida',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 500, 250, 500, 250, 500],
+        sound: 'default',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        enableLights: true,
+      });
+    }
+
     let { status } = await Notifications.getPermissionsAsync();
     if (status !== 'granted') {
       status = (await Notifications.requestPermissionsAsync()).status;

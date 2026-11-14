@@ -13,6 +13,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../shared/api';
 import { LogoutButton } from '../components/LogoutButton';
 import { useAuth } from '../context/AuthContext';
+import { iniciarLocalizacaoSegundoPlano, pararLocalizacaoSegundoPlano } from '../../../shared/backgroundLocation';
 import { requestCurrentLocation, startLocationWatch } from '../../../shared/location';
 import { MapLocateButton } from '../../../shared/MapLocateButton';
 import { AppMap, AppMarker } from '../../../shared/SimpleMap';
@@ -52,6 +53,8 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
     if (dashboard) {
       setOnline(dashboard.online);
       dashboardOnlineRef.current = dashboard.online;
+      // Reabriu o app já online: retoma o envio de localização em segundo plano.
+      if (dashboard.online) void iniciarLocalizacaoSegundoPlano();
     }
   }, [dashboard]);
 
@@ -148,7 +151,9 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
         }));
         setOnline(true);
         dashboardOnlineRef.current = true;
+        void iniciarLocalizacaoSegundoPlano();
       } else {
+        await pararLocalizacaoSegundoPlano();
         await api.goOffline();
         setOnline(false);
         dashboardOnlineRef.current = false;

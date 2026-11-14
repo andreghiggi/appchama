@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { api, setToken } from '../../../shared/api';
+import { pararLocalizacaoSegundoPlano } from '../../../shared/backgroundLocation';
 import { removerPush } from '../../../shared/push';
 import { storage } from '../../../shared/storage';
 import type { User } from '../../../shared/types';
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(nextUser);
       },
       logout: async () => {
+        await pararLocalizacaoSegundoPlano();
         try {
           await api.goOffline();
         } catch {
