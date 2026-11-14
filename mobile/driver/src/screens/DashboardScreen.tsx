@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -15,6 +16,7 @@ import { LogoutButton } from '../components/LogoutButton';
 import { useAuth } from '../context/AuthContext';
 import { iniciarLocalizacaoSegundoPlano, pararLocalizacaoSegundoPlano } from '../../../shared/backgroundLocation';
 import { requestCurrentLocation, startLocationWatch } from '../../../shared/location';
+import { regiaoPadrao } from '../../../shared/mapaPadrao';
 import { MapLocateButton } from '../../../shared/MapLocateButton';
 import { AppMap, AppMarker } from '../../../shared/SimpleMap';
 import { onlineLabel, subscriptionStatusLabel } from '../../../shared/labels';
@@ -25,18 +27,33 @@ import type { Ride } from '../../../shared/types';
 type Props = {
   onOffer: (ride: Ride, expiresIn: number) => void;
   onOpenWallet: () => void;
+  onOpenHistory: () => void;
 };
 
-export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
+function haQuanto(desde: number, agora: number): string {
+  const s = Math.max(0, Math.round((agora - desde) / 1000));
+  if (s < 10) return 'agora';
+  if (s < 60) return `há ${s} s`;
+  return `há ${Math.floor(s / 60)} min`;
+}
+
+function tempoOnline(desde: number | null, agora: number): string {
+  if (!desde) return '0 min';
+  const min = Math.max(0, Math.floor((agora - desde) / 60000));
+  if (min < 60) return `${min} min`;
+  return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} min`;
+}
+
+export default function DashboardScreen({ onOffer, onOpenWallet, onOpenHistory }: Props) {
   const { logout } = useAuth();
   const queryClient = useQueryClient();
   const [online, setOnline] = useState(false);
-  const [region, setRegion] = useState({
-    latitude: -23.5505,
-    longitude: -46.6333,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  });
+  const [region, setRegion] = useState(() => regiaoPadrao());
+  // Só mostra o carrinho do motorista quando o GPS já respondeu (nunca num ponto "chutado").
+  const [gpsOk, setGpsOk] = useState(false);
+  const [ultimaPosicaoEm, setUltimaPosicaoEm] = useState<number | null>(null);
+  const [onlineDesde, setOnlineDesde] = useState<number | null>(null);
+  const [agora, setAgora] = useState(() => Date.now());
   const [locating, setLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const stopWatchRef = useRef<(() => void) | null>(null);
@@ -60,10 +77,14 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
 
   const syncLocationToServer = async (lat: number, lng: number) => {
     setRegion((r) => ({
-      ...r,
       latitude: lat,
       longitude: lng,
+      latitudeDelta: Math.min(r.latitudeDelta, 0.05),
+      longitudeDelta: Math.min(r.longitudeDelta, 0.05),
     }));
+    setGpsOk(true);
+    setUltimaPosicaoEm(Date.now());
+    setLocationError(null);
     if (dashboardOnlineRef.current || online) {
       await api.updateLocation(lat, lng);
     }
@@ -88,6 +109,7 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
 
   useEffect(() => {
     dashboardOnlineRef.current = online;
+    setOnlineDesde((atual) => (online ? (atual ?? Date.now()) : null));
 
     if (stopWatchRef.current) {
       stopWatchRef.current();
@@ -110,6 +132,14 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
         stopWatchRef.current = null;
       }
     };
+  }, [online]);
+
+  // Relógio do painel (tempo online e "GPS enviado há ...").
+  useEffect(() => {
+    if (!online) return;
+    const id = setInterval(() => setAgora(Date.now()), 5000);
+    setAgora(Date.now());
+    return () => clearInterval(id);
   }, [online]);
 
   const toggleOnline = async (value: boolean) => {
@@ -145,10 +175,13 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
         await api.updateLocation(coords.latitude, coords.longitude);
         await api.goOnline(coords.latitude, coords.longitude);
         setRegion((r) => ({
-          ...r,
           latitude: coords.latitude,
           longitude: coords.longitude,
+          latitudeDelta: Math.min(r.latitudeDelta, 0.05),
+          longitudeDelta: Math.min(r.longitudeDelta, 0.05),
         }));
+        setGpsOk(true);
+        setUltimaPosicaoEm(Date.now());
         setOnline(true);
         dashboardOnlineRef.current = true;
         void iniciarLocalizacaoSegundoPlano();
@@ -248,6 +281,22 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
         </View>
       </View>
 
+      {online ? (
+        <View style={styles.statusCard}>
+          <View style={[styles.statusDot, { backgroundColor: gpsOk && ultimaPosicaoEm && agora - ultimaPosicaoEm < 90000 ? '#16A34A' : '#F59E0B' }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.statusTitle}>
+              Online há {tempoOnline(onlineDesde, agora)}
+            </Text>
+            <Text style={styles.statusSub}>
+              {gpsOk && ultimaPosicaoEm
+                ? `GPS enviado ${haQuanto(ultimaPosicaoEm, agora)}`
+                : 'Aguardando o sinal do GPS...'}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       <Pressable style={styles.creditCard} onPress={onOpenWallet}>
         <Text style={styles.statLabel}>Crédito para aceitar corridas</Text>
         <Text style={styles.statValue}>
@@ -278,6 +327,10 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
         <Text style={styles.walletBtnText}>Carteira e saques</Text>
       </Pressable>
 
+      <Pressable style={styles.walletBtn} onPress={onOpenHistory}>
+        <Text style={styles.walletBtnText}>Minhas corridas</Text>
+      </Pressable>
+
       <View style={styles.badge}>
         <Text style={styles.badgeText}>
           Mensalidade: {subscriptionStatusLabel(dashboard?.subscription_status ?? 'pending')}
@@ -295,16 +348,23 @@ export default function DashboardScreen({ onOffer, onOpenWallet }: Props) {
       {locationError ? (
         <View style={styles.locationBanner}>
           <Text style={styles.locationBannerText}>{locationError}</Text>
+          {Platform.OS !== 'web' ? (
+            <Pressable style={styles.locationBtn} onPress={() => void Linking.openSettings()} hitSlop={8}>
+              <Text style={styles.locationBtnText}>Ativar localização</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
       <View style={styles.mapWrap}>
         <AppMap style={styles.map} region={region}>
-          <AppMarker
-            coordinate={{ latitude: region.latitude, longitude: region.longitude }}
-            title="Você"
-            variant="driver"
-          />
+          {gpsOk ? (
+            <AppMarker
+              coordinate={{ latitude: region.latitude, longitude: region.longitude }}
+              title="Você"
+              variant="driver"
+            />
+          ) : null}
         </AppMap>
         <MapLocateButton onPress={centerOnUser} loading={locating} />
       </View>
@@ -358,6 +418,27 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   locationBannerText: { color: '#92400E', fontSize: 12, fontWeight: '600' },
+  locationBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#92400E',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  locationBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: theme.paper,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  statusDot: { width: 12, height: 12, borderRadius: 6 },
+  statusTitle: { fontWeight: '700', color: theme.ink, fontSize: 14 },
+  statusSub: { color: theme.textSecondary, fontSize: 12, marginTop: 2 },
   hintBanner: {
     backgroundColor: '#E0F2FE',
     borderRadius: 12,

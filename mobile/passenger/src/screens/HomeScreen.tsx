@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +21,7 @@ import {
 } from '../../../shared/geocode';
 import { formatBrl } from '../../../shared/fare';
 import { requestCurrentLocation } from '../../../shared/location';
+import { regiaoPadrao } from '../../../shared/mapaPadrao';
 import { MapLocateButton } from '../../../shared/MapLocateButton';
 import {
   resolvePickupPoint,
@@ -41,12 +44,7 @@ type RideEstimate = {
 
 export default function HomeScreen({ onRideActive }: Props) {
   const { user } = useAuth();
-  const [region, setRegion] = useState({
-    latitude: -23.5505,
-    longitude: -46.6333,
-    latitudeDelta: 0.04,
-    longitudeDelta: 0.04,
-  });
+  const [region, setRegion] = useState(() => regiaoPadrao());
   const [pickupPoint, setPickupPoint] = useState<{ latitude: number; longitude: number } | null>(
     null,
   );
@@ -171,9 +169,10 @@ export default function HomeScreen({ onRideActive }: Props) {
   ) => {
     const { pickup, usedCityCenter } = resolvePickupPoint(coords, activeCity);
     setRegion((r) => ({
-      ...r,
       latitude: pickup.latitude,
       longitude: pickup.longitude,
+      latitudeDelta: Math.min(r.latitudeDelta ?? 0.04, 0.08),
+      longitudeDelta: Math.min(r.longitudeDelta ?? 0.04, 0.08),
     }));
     if (!destinationPoint) {
       setPickupPoint(null);
@@ -197,9 +196,10 @@ export default function HomeScreen({ onRideActive }: Props) {
         await applyPickup(coords, activeCity);
       } else {
         setRegion((r) => ({
-          ...r,
           latitude: coords.latitude,
           longitude: coords.longitude,
+          latitudeDelta: Math.min(r.latitudeDelta ?? 0.04, 0.08),
+          longitudeDelta: Math.min(r.longitudeDelta ?? 0.04, 0.08),
         }));
         if (!destinationPoint) {
           setPickupPoint(null);
@@ -507,6 +507,11 @@ export default function HomeScreen({ onRideActive }: Props) {
       {locationError ? (
         <View style={styles.locationBanner}>
           <Text style={styles.locationBannerText}>{locationError}</Text>
+          {Platform.OS !== 'web' ? (
+            <Pressable style={styles.locationBtn} onPress={() => void Linking.openSettings()} hitSlop={8}>
+              <Text style={styles.locationBtnText}>Ativar localização</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -635,6 +640,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   locationBannerText: { color: '#92400E', fontSize: 12, fontWeight: '600' },
+  locationBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#92400E',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  locationBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   areaErrorBanner: {
     backgroundColor: '#FEE2E2',
     paddingHorizontal: 16,

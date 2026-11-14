@@ -163,7 +163,8 @@ export const api = {
 
   getActiveRide: () => request<{ ride: Ride | null }>('/rides/active'),
 
-  listRides: () => request<{ data: Ride[] }>('/rides'),
+  listRides: (page = 1) =>
+    request<{ data: Ride[]; current_page?: number; last_page?: number }>(`/rides?page=${page}`),
 
   /** Sem argumento: cidades com corridas (passageiro). 'driver': cidades abertas ao cadastro de motorista. */
   listCities: (forRole?: 'driver') => request<City[]>(forRole === 'driver' ? '/cities?for=driver' : '/cities'),

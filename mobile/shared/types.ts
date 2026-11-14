@@ -42,6 +42,8 @@ export type ApiNumber = number | string;
 
 export type Ride = {
   canceled_reason?: string | null;
+  requested_at?: string | null;
+  completed_at?: string | null;
   id: string;
   status: string;
   origin_lat: ApiNumber;

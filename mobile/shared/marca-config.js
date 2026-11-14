@@ -105,6 +105,7 @@ function aplicar(config, app, appDir) {
         tenantSlug: marca.tenant_slug,
         apiUrl: apiBase,
         cidadePadrao: marca.cidade_padrao || null,
+        centroMapa: marca.centro_mapa || null,
       },
     },
   };
