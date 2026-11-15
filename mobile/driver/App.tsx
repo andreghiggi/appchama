@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { TelaSegura } from '../shared/TelaSegura';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -62,10 +63,20 @@ function MainApp() {
     );
   }
 
-  if (!user) return <LoginScreen />;
+  if (!user) {
+    return (
+      <TelaSegura>
+        <LoginScreen />
+      </TelaSegura>
+    );
+  }
 
   if (driverNeedsApproval(user)) {
-    return <PendingApprovalScreen />;
+    return (
+      <TelaSegura>
+        <PendingApprovalScreen />
+      </TelaSegura>
+    );
   }
 
   if (restoring) {
@@ -86,28 +97,36 @@ function MainApp() {
 
   if (offer) {
     return (
-      <OfferScreen
-        ride={offer.ride}
-        expiresIn={offer.expiresIn}
-        onAccepted={() => {
-          setActiveRideId(offer.ride.id);
-          setOffer(null);
-        }}
-        onDismiss={() => setOffer(null)}
-      />
+      <TelaSegura>
+        <OfferScreen
+          ride={offer.ride}
+          expiresIn={offer.expiresIn}
+          onAccepted={() => {
+            setActiveRideId(offer.ride.id);
+            setOffer(null);
+          }}
+          onDismiss={() => setOffer(null)}
+        />
+      </TelaSegura>
     );
   }
 
   if (activeRideId) {
-    return <ActiveRideScreen rideId={activeRideId} onDone={() => setActiveRideId(null)} />;
+    return (
+      <TelaSegura>
+        <ActiveRideScreen rideId={activeRideId} onDone={() => setActiveRideId(null)} />
+      </TelaSegura>
+    );
   }
 
   return (
-    <DashboardScreen
-      onOffer={(ride, expiresIn) => setOffer({ ride, expiresIn })}
-      onOpenWallet={() => setShowWallet(true)}
-      onOpenHistory={() => setShowHistory(true)}
-    />
+    <TelaSegura>
+      <DashboardScreen
+        onOffer={(ride, expiresIn) => setOffer({ ride, expiresIn })}
+        onOpenWallet={() => setShowWallet(true)}
+        onOpenHistory={() => setShowHistory(true)}
+      />
+    </TelaSegura>
   );
 }
 
