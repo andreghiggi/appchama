@@ -61,6 +61,7 @@ class AsaasCustomerService
 
     public function assertPaymentProfile(User $user): void
     {
+        abort_unless($user->hasFullName(), 422, 'Informe seu nome completo (nome e sobrenome) antes de pagar.');
         abort_unless($user->hasPaymentProfile(), 422, 'Complete CPF, e-mail e endereço antes de pagar.');
     }
 

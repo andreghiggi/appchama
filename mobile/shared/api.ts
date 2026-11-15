@@ -72,6 +72,7 @@ export const api = {
     }),
 
   updateProfile: (payload: {
+    name?: string;
     cpf: string;
     email: string;
     home_address: string;

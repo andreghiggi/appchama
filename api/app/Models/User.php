@@ -107,9 +107,16 @@ class User extends Authenticatable implements FilamentUser
         return $this->role === 'passenger';
     }
 
+    /** O Asaas (cartao/checkout) recusa nome de uma palavra so: exige nome e sobrenome. */
+    public function hasFullName(): bool
+    {
+        return preg_match('/\S+\s+\S+/u', trim((string) $this->name)) === 1;
+    }
+
     public function hasPaymentProfile(): bool
     {
-        return filled($this->cpf)
+        return $this->hasFullName()
+            && filled($this->cpf)
             && filled($this->email)
             && filled($this->home_address)
             && filled($this->home_address_number)
