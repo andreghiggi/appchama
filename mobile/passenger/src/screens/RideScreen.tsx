@@ -8,10 +8,8 @@ import {
 } from 'react-native';
 import { api } from '../../../shared/api';
 import { toLatLng, toNumber } from '../../../shared/coords';
-import DriverCard from '../../../shared/DriverCard';
 import { formatBrl } from '../../../shared/fare';
 import { AppMap, AppMarker, AppRoute } from '../../../shared/SimpleMap';
-import { rideStatusLabel } from '../../../shared/labels';
 import { theme } from '../../../shared/theme';
 import type { Ride } from '../../../shared/types';
 
@@ -113,14 +111,25 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
   const hasDriver = Boolean(ride.driver?.user?.name);
   const showDriverOnMap = hasDriver && driverLoc && ride.status !== 'searching';
 
-  const driverSubtitle =
+  const vehicle = ride.driver?.vehicles?.[0];
+  const primeiroNome = (ride.driver?.user?.name ?? 'Motorista').split(' ')[0];
+  const etaNum = Number(ride.driver_eta_min);
+  const etaOk = Number.isFinite(etaNum) && ride.driver_eta_min != null;
+  const headline =
+    ride.status === 'driver_arrived'
+      ? `${primeiroNome} chegou`
+      : ride.status === 'in_progress'
+        ? 'A caminho do destino'
+        : `${primeiroNome} está a caminho`;
+  const headSub =
     ride.status === 'driver_arrived'
       ? 'Motorista no local de embarque'
       : ride.status === 'in_progress'
-        ? 'A caminho do destino'
-        : ride.status === 'accepted'
-          ? 'A caminho do embarque'
-          : undefined;
+        ? 'Chegada prevista'
+        : 'Indo até o seu embarque';
+  const etaBox = ride.status === 'driver_arrived' ? null : etaOk ? Math.max(1, Math.round(etaNum)) : null;
+  const ratingNum = Number(ride.driver?.rating_avg);
+  const ratingTxt = Number.isFinite(ratingNum) && ratingNum > 0 ? ratingNum.toFixed(1).replace('.', ',') : null;
 
   return (
     <View style={styles.container}>
@@ -152,28 +161,58 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
       </View>
 
       <View style={styles.sheet}>
-        <View style={styles.statusRow}>
-          {isSearching ? <ActivityIndicator color={theme.mint} style={styles.statusSpinner} /> : null}
-          <Text style={styles.statusLabel}>{rideStatusLabel(ride.status)}</Text>
-        </View>
+        <View style={styles.handle} />
 
         {canceled ? (
-          <Text style={styles.driverName}>
-            {ride.status === 'canceled_by_driver'
-              ? 'O motorista cancelou a corrida'
-              : 'Corrida cancelada'}
+          <Text style={styles.headline}>
+            {ride.status === 'canceled_by_driver' ? 'O motorista cancelou a corrida' : 'Corrida cancelada'}
           </Text>
         ) : hasDriver ? (
-          <DriverCard ride={ride} subtitle={driverSubtitle} />
+          <View style={styles.headRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headline} numberOfLines={2}>{headline}</Text>
+              <Text style={styles.headSub}>{headSub}</Text>
+            </View>
+            {etaBox != null ? (
+              <View style={styles.etaBox}>
+                <Text style={styles.etaNum}>{etaBox}</Text>
+                <Text style={styles.etaUnit}>min</Text>
+              </View>
+            ) : null}
+          </View>
         ) : (
-          <Text style={styles.driverName}>
-            {isSearching
-              ? ride.canceled_reason?.startsWith('Motorista anterior')
-                ? 'O motorista cancelou. Procurando outro para você...'
-                : 'Procurando motorista próximo...'
-              : 'Nenhum motorista disponível'}
-          </Text>
+          <View style={styles.headRow}>
+            {isSearching ? <ActivityIndicator color={theme.ink} style={styles.statusSpinner} /> : null}
+            <Text style={[styles.headline, { flex: 1 }]}>
+              {isSearching
+                ? ride.canceled_reason?.startsWith('Motorista anterior')
+                  ? 'O motorista cancelou. Procurando outro para você...'
+                  : 'Procurando motorista próximo...'
+                : 'Nenhum motorista disponível'}
+            </Text>
+          </View>
         )}
+
+        {hasDriver && !canceled ? (
+          <View style={styles.driverRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{(ride.driver?.user?.name ?? 'M').charAt(0).toUpperCase()}</Text>
+              {ratingTxt ? (
+                <View style={styles.ratingPill}>
+                  <Text style={styles.ratingTxt}>{ratingTxt} ★</Text>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.vehicleCol}>
+              <Text style={styles.plate}>{vehicle?.plate ?? '—'}</Text>
+              <Text style={styles.vehicleTxt} numberOfLines={1}>
+                {[vehicle?.model, vehicle?.color].filter(Boolean).join(' · ') || ride.driver?.user?.name}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.divider} />
 
         {ride.origin_address ? (
           <View style={styles.addressRow}>
@@ -238,10 +277,54 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  statusRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: '#D4D4D4', marginBottom: 12 },
   statusSpinner: { marginRight: 8 },
-  statusLabel: { fontSize: 13, fontWeight: '700', color: theme.mint, textTransform: 'uppercase' },
-  driverName: { fontSize: 18, fontWeight: '700', color: theme.ink, marginBottom: 10 },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headline: { fontSize: 20, fontWeight: '800', color: theme.ink },
+  headSub: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
+  etaBox: {
+    backgroundColor: theme.amber,
+    borderRadius: 10,
+    minWidth: 64,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  etaNum: { fontSize: 26, fontWeight: '800', color: theme.ink, lineHeight: 28 },
+  etaUnit: { fontSize: 12, fontWeight: '700', color: theme.ink },
+  driverRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: theme.line,
+  },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: theme.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: theme.amber, fontWeight: '800', fontSize: 26 },
+  ratingPill: {
+    position: 'absolute',
+    bottom: -8,
+    backgroundColor: theme.paper,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: theme.line,
+  },
+  ratingTxt: { fontSize: 11, fontWeight: '700', color: theme.ink },
+  vehicleCol: { alignItems: 'flex-end', flex: 1, marginLeft: 12 },
+  plate: { fontSize: 24, fontWeight: '800', color: theme.ink, letterSpacing: 1 },
+  vehicleTxt: { fontSize: 14, color: theme.textSecondary, marginTop: 2 },
+  divider: { height: 1, backgroundColor: theme.line, marginTop: 14 },
   addressRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
