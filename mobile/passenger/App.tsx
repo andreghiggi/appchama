@@ -140,7 +140,6 @@ function MainApp() {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarHideOnKeyboard: true,
         headerStyle: { backgroundColor: theme.ink },
         headerTintColor: '#fff',
         tabBarActiveTintColor: theme.ink,

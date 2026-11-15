@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Keyboard,
   Linking,
   Platform,
@@ -10,6 +11,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { api } from '../../../shared/api';
@@ -48,6 +50,9 @@ type RideEstimate = {
 export default function HomeScreen({ onRideActive }: Props) {
   const { user } = useAuth();
   const alturaTeclado = useAlturaTeclado();
+  const { height: alturaTela } = useWindowDimensions();
+  // Mapa movel: comeca recolhido; ao escolher o destino expande; o passageiro pode alternar pela alca.
+  const [mapaManual, setMapaManual] = useState<boolean | null>(null);
   const [region, setRegion] = useState(() => regiaoPadrao());
   const [pickupPoint, setPickupPoint] = useState<{ latitude: number; longitude: number } | null>(
     null,
@@ -84,6 +89,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   const [originText, setOriginText] = useState('');
   const [originSuggestions, setOriginSuggestions] = useState<GeocodeResult[]>([]);
   const originTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const regionRef = useRef<{ latitude: number; longitude: number; latitudeDelta?: number; longitudeDelta?: number } | null>(null);
   const setFollow = (value: boolean) => {
     followRef.current = value;
     setFollowGpsState(value);
@@ -95,6 +101,14 @@ export default function HomeScreen({ onRideActive }: Props) {
     latitude: region.latitude,
     longitude: region.longitude,
   };
+
+  const tecladoAberto = alturaTeclado > 0;
+  const mapaExpandido = tecladoAberto ? false : (mapaManual ?? Boolean(destinationPoint));
+  const alturaAlvoMapa = Math.round(alturaTela * (tecladoAberto ? 0.1 : mapaExpandido ? 0.4 : 0.17));
+  const alturaMapa = useRef(new Animated.Value(alturaAlvoMapa)).current;
+  useEffect(() => {
+    Animated.timing(alturaMapa, { toValue: alturaAlvoMapa, duration: 220, useNativeDriver: false }).start();
+  }, [alturaAlvoMapa]);
 
   const routePoints = useMemo(() => {
     if (fareEstimate?.routePoints.length) return fareEstimate.routePoints;
@@ -149,6 +163,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   const selectOperatingCity = async (selected: City) => {
+    setFollow(false);
     setCityLocked(true);
     setAreaError(null);
     setPickupAreaHint(null);
@@ -246,6 +261,15 @@ export default function HomeScreen({ onRideActive }: Props) {
     latitudeDelta?: number;
     longitudeDelta?: number;
   }) => {
+    const atual = regionRef.current;
+    if (
+      atual &&
+      distanciaMetros(next, atual) < 15 &&
+      Math.abs((next.latitudeDelta ?? 0) - (atual.latitudeDelta ?? 0)) < 0.002
+    ) {
+      return;
+    }
+    regionRef.current = next;
     setRegion(next);
     if (destinationPoint) return;
 
@@ -439,7 +463,7 @@ export default function HomeScreen({ onRideActive }: Props) {
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
-  }, [destination, activePickup.latitude, activePickup.longitude, destinationPoint?.label, city?.id]);
+  }, [destination, pickupLat, pickupLng, destinationPoint?.label, city?.id]);
 
   useEffect(() => {
     if (!city || !destinationPoint) {
@@ -506,6 +530,7 @@ export default function HomeScreen({ onRideActive }: Props) {
 
   const selectDestination = async (item: GeocodeResult) => {
     Keyboard.dismiss();
+    setMapaManual(null);
     const frozenPickup = {
       latitude: activePickup.latitude,
       longitude: activePickup.longitude,
@@ -520,6 +545,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   const clearDestination = () => {
+    setMapaManual(null);
     setDestination('');
     setDestinationPoint(null);
     setPickupPoint(null);
@@ -568,7 +594,7 @@ export default function HomeScreen({ onRideActive }: Props) {
 
   return (
     <View style={[styles.container, alturaTeclado > 0 ? { paddingBottom: alturaTeclado } : null]}>
-      <View style={styles.mapWrap}>
+      <Animated.View style={[styles.mapWrap, { height: alturaMapa }]}>
         <AppMap
           style={styles.map}
           region={mapRegion}
@@ -592,7 +618,13 @@ export default function HomeScreen({ onRideActive }: Props) {
           ) : null}
         </AppMap>
         <MapLocateButton onPress={centerOnUser} loading={locating} />
-      </View>
+      </Animated.View>
+      {tecladoAberto ? null : (
+        <Pressable style={styles.alca} onPress={() => setMapaManual(!mapaExpandido)} hitSlop={6}>
+          <View style={styles.alcaBarra} />
+          <Text style={styles.alcaTexto}>{mapaExpandido ? 'Recolher mapa' : 'Expandir mapa'}</Text>
+        </Pressable>
+      )}
 
       {areaError ? (
         <View style={styles.areaErrorBanner}>
@@ -620,7 +652,7 @@ export default function HomeScreen({ onRideActive }: Props) {
         contentContainerStyle={styles.sheet}
         keyboardShouldPersistTaps="handled"
       >
-        {operatingCities.length > 0 ? (
+        {operatingCities.length > 0 && !tecladoAberto ? (
           <View style={styles.cityPicker}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {operatingCities.map((item) => {
@@ -640,7 +672,7 @@ export default function HomeScreen({ onRideActive }: Props) {
             </ScrollView>
           </View>
         ) : null}
-        {city ? (
+        {city && !tecladoAberto ? (
           <Text style={styles.cityHint}>
             Área de {city.name} · até {maxRadiusKm} km
           </Text>
@@ -764,7 +796,10 @@ export default function HomeScreen({ onRideActive }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg, minHeight: '100%' as unknown as number },
-  mapWrap: { flex: 1, minHeight: 200, maxHeight: '50%' as unknown as number, position: 'relative' },
+  mapWrap: { position: 'relative', overflow: 'hidden' },
+  alca: { alignItems: 'center', paddingVertical: 6, backgroundColor: theme.paper },
+  alcaBarra: { width: 38, height: 4, borderRadius: 2, backgroundColor: theme.line, marginBottom: 3 },
+  alcaTexto: { fontSize: 11, color: theme.textSecondary, fontWeight: '600' },
   map: { flex: 1, minHeight: 240 },
   locationBanner: {
     backgroundColor: '#FEF3C7',
@@ -788,9 +823,7 @@ const styles = StyleSheet.create({
   },
   areaErrorText: { color: '#991B1B', fontSize: 12, fontWeight: '600', lineHeight: 16 },
   sheetScroll: {
-    flexGrow: 0,
-    flexShrink: 1,
-    maxHeight: '42%' as unknown as number,
+    flex: 1,
   },
   sheet: {
     backgroundColor: theme.paper,
