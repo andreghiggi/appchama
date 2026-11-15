@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   Linking,
   Platform,
   Pressable,
@@ -29,6 +30,7 @@ import {
 } from '../../../shared/serviceArea';
 import { AppMap, AppMarker, AppNearbyCars, AppRoute, type NearbyCar } from '../../../shared/SimpleMap';
 import { theme } from '../../../shared/theme';
+import { useAlturaTeclado } from '../../../shared/TelaSegura';
 import type { City, Ride } from '../../../shared/types';
 import { useAuth } from '../context/AuthContext';
 
@@ -45,6 +47,7 @@ type RideEstimate = {
 
 export default function HomeScreen({ onRideActive }: Props) {
   const { user } = useAuth();
+  const alturaTeclado = useAlturaTeclado();
   const [region, setRegion] = useState(() => regiaoPadrao());
   const [pickupPoint, setPickupPoint] = useState<{ latitude: number; longitude: number } | null>(
     null,
@@ -488,6 +491,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   }, [city, destinationPoint, pickupPoint, activePickup.latitude, activePickup.longitude]);
 
   const selectOrigin = async (item: GeocodeResult) => {
+    Keyboard.dismiss();
     const ponto = { latitude: item.latitude, longitude: item.longitude };
     originCustomRef.current = true;
     setFollow(false);
@@ -501,6 +505,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   const selectDestination = async (item: GeocodeResult) => {
+    Keyboard.dismiss();
     const frozenPickup = {
       latitude: activePickup.latitude,
       longitude: activePickup.longitude,
@@ -562,7 +567,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, alturaTeclado > 0 ? { paddingBottom: alturaTeclado } : null]}>
       <View style={styles.mapWrap}>
         <AppMap
           style={styles.map}
