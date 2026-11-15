@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TelaSegura } from '../shared/TelaSegura';
+import AvisoAtualizacao from '../shared/AvisoAtualizacao';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -164,6 +165,7 @@ export default function App() {
           <NavigationContainer>
             <StatusBar style="light" />
             <MainApp />
+            <AvisoAtualizacao app="passenger" />
           </NavigationContainer>
         </AuthProvider>
       </SafeAreaProvider>

@@ -188,6 +188,9 @@ export const api = {
     }>(`/cities/nearest?${params}`);
   },
 
+  appVersion: (app: 'passenger' | 'driver') =>
+    request<{ latest: number; minimum: number }>(`/app-version?app=${app}`),
+
   searchGeocode: (q: string, lat: number, lng: number, cityId?: string) => {
     const params = new URLSearchParams({
       q,
