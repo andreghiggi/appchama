@@ -34,6 +34,7 @@ import { AppMap, AppMarker, AppNearbyCars, AppRoute, type NearbyCar } from '../.
 import { theme } from '../../../shared/theme';
 import { useAlturaTeclado } from '../../../shared/TelaSegura';
 import type { City, Ride } from '../../../shared/types';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
 
 type Props = {
@@ -50,6 +51,8 @@ type RideEstimate = {
 export default function HomeScreen({ onRideActive }: Props) {
   const { user } = useAuth();
   const alturaTeclado = useAlturaTeclado();
+  // O teclado cobre tambem a barra de abas: so a parte que sobra por cima da tela precisa de folga.
+  const alturaAbas = useBottomTabBarHeight();
   const { height: alturaTela } = useWindowDimensions();
   // Mapa movel: comeca recolhido; ao escolher o destino expande; o passageiro pode alternar pela alca.
   const [mapaManual, setMapaManual] = useState<boolean | null>(null);
@@ -89,6 +92,8 @@ export default function HomeScreen({ onRideActive }: Props) {
   const [originText, setOriginText] = useState('');
   const [originSuggestions, setOriginSuggestions] = useState<GeocodeResult[]>([]);
   const originTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // O teclado devolve o texto digitado ao fechar; sem isso ele apagava o endereco recem escolhido.
+  const escolhaRecenteRef = useRef(0);
   const regionRef = useRef<{ latitude: number; longitude: number; latitudeDelta?: number; longitudeDelta?: number } | null>(null);
   const setFollow = (value: boolean) => {
     followRef.current = value;
@@ -104,7 +109,7 @@ export default function HomeScreen({ onRideActive }: Props) {
 
   const tecladoAberto = alturaTeclado > 0;
   const mapaExpandido = tecladoAberto ? false : (mapaManual ?? Boolean(destinationPoint));
-  const alturaAlvoMapa = Math.round(alturaTela * (tecladoAberto ? 0.1 : mapaExpandido ? 0.4 : 0.17));
+  const alturaAlvoMapa = Math.round(alturaTela * (tecladoAberto ? 0.1 : mapaExpandido ? 0.34 : 0.17));
   const alturaMapa = useRef(new Animated.Value(alturaAlvoMapa)).current;
   useEffect(() => {
     Animated.timing(alturaMapa, { toValue: alturaAlvoMapa, duration: 220, useNativeDriver: false }).start();
@@ -515,6 +520,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   }, [city, destinationPoint, pickupPoint, activePickup.latitude, activePickup.longitude]);
 
   const selectOrigin = async (item: GeocodeResult) => {
+    escolhaRecenteRef.current = Date.now();
     Keyboard.dismiss();
     const ponto = { latitude: item.latitude, longitude: item.longitude };
     originCustomRef.current = true;
@@ -529,6 +535,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   const selectDestination = async (item: GeocodeResult) => {
+    escolhaRecenteRef.current = Date.now();
     Keyboard.dismiss();
     setMapaManual(null);
     const frozenPickup = {
@@ -593,7 +600,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   return (
-    <View style={[styles.container, alturaTeclado > 0 ? { paddingBottom: alturaTeclado } : null]}>
+    <View style={[styles.container, alturaTeclado > 0 ? { paddingBottom: Math.max(0, alturaTeclado - alturaAbas) } : null]}>
       <Animated.View style={[styles.mapWrap, { height: alturaMapa }]}>
         <AppMap
           style={styles.map}
@@ -652,7 +659,7 @@ export default function HomeScreen({ onRideActive }: Props) {
         contentContainerStyle={styles.sheet}
         keyboardShouldPersistTaps="handled"
       >
-        {operatingCities.length > 0 && !tecladoAberto ? (
+        {operatingCities.length > 0 && !tecladoAberto && !destinationPoint ? (
           <View style={styles.cityPicker}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {operatingCities.map((item) => {
@@ -672,7 +679,7 @@ export default function HomeScreen({ onRideActive }: Props) {
             </ScrollView>
           </View>
         ) : null}
-        {city && !tecladoAberto ? (
+        {city && !tecladoAberto && !destinationPoint ? (
           <Text style={styles.cityHint}>
             Área de {city.name} · até {maxRadiusKm} km
           </Text>
@@ -693,7 +700,10 @@ export default function HomeScreen({ onRideActive }: Props) {
                 setOriginText('');
               }}
               onBlur={() => setTimeout(() => setOriginEditing(false), 200)}
-              onChangeText={setOriginText}
+              onChangeText={(text) => {
+                if (Date.now() - escolhaRecenteRef.current < 1500) return;
+                setOriginText(text);
+              }}
             />
             <Pressable style={styles.clearBtn} onPress={() => void centerOnUser()} hitSlop={6}>
               <Text style={styles.clearBtnText}>◎</Text>
@@ -730,6 +740,7 @@ export default function HomeScreen({ onRideActive }: Props) {
               placeholderTextColor={theme.textMuted}
               value={destination}
               onChangeText={(text) => {
+                if (Date.now() - escolhaRecenteRef.current < 1500) return;
                 setDestination(text);
                 if (destinationPoint && text !== destinationPoint.label) {
                   setDestinationPoint(null);
@@ -795,7 +806,7 @@ export default function HomeScreen({ onRideActive }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.bg, minHeight: '100%' as unknown as number },
+  container: { flex: 1, backgroundColor: theme.bg },
   mapWrap: { position: 'relative', overflow: 'hidden' },
   alca: { alignItems: 'center', paddingVertical: 6, backgroundColor: theme.paper },
   alcaBarra: { width: 38, height: 4, borderRadius: 2, backgroundColor: theme.line, marginBottom: 3 },
