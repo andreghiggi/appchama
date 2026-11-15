@@ -66,6 +66,7 @@ class DriverWalletController extends Controller
             abort_unless(\App\Support\Cpf::isValid($data['cpf']), 422, 'CPF inválido.');
             $user->update(['cpf' => $data['cpf']]);
         }
+        abort_unless(filled($user->cpf), 422, 'Informe seu CPF para gerar o Pix de recarga.');
         $tenant = Tenant::query()->findOrFail($driver->user->tenant_id);
         return response()->json($this->rechargeService->createPix($driver, $tenant, (float) $data['amount']), 201);
     }
