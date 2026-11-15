@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware(['tenant'])->group(function () {
     Route::get('/brand-config', [\App\Http\Controllers\Api\BrandConfigController::class, 'show']);
+    Route::get('/app-version', [\App\Http\Controllers\Api\AppVersionController::class, 'show']);
     Route::post('/auth/otp/send', [AuthController::class, 'sendOtp'])->middleware('throttle:otp-send');
     Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:otp-verify');
     Route::post('/auth/driver/login', [AuthController::class, 'driverLogin']);
