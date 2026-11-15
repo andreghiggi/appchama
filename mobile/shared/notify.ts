@@ -1,4 +1,5 @@
 import { Platform, Vibration } from 'react-native';
+import * as Notifications from 'expo-notifications';
 
 const isWeb = Platform.OS === 'web';
 
@@ -72,7 +73,33 @@ function flashTitle(text: string): void {
   }, 800);
 }
 
+let nativeTimer: ReturnType<typeof setInterval> | null = null;
+
+/** App nativo: vibra e toca o som de notificacao em repeticao ate o motorista responder. */
+function startNativeOfferAlert(subtitle?: string): void {
+  if (nativeTimer) return;
+  const pulse = () => {
+    Vibration.vibrate([0, 500, 250, 500, 250, 500]);
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Nova corrida disponível',
+        body: subtitle ?? 'Toque para abrir e aceitar.',
+        sound: 'default',
+      },
+      trigger: Platform.OS === 'android' ? { channelId: 'ofertas' } : null,
+    }).catch(() => undefined);
+  };
+  pulse();
+  nativeTimer = setInterval(pulse, 4000);
+}
+
 export function stopOfferAlert(): void {
+  if (nativeTimer) {
+    clearInterval(nativeTimer);
+    nativeTimer = null;
+    Vibration.cancel();
+    Notifications.dismissAllNotificationsAsync().catch(() => undefined);
+  }
   if (titleTimer) {
     clearInterval(titleTimer);
     titleTimer = null;
@@ -82,7 +109,7 @@ export function stopOfferAlert(): void {
 
 export function alertNewOffer(subtitle?: string): void {
   if (!isWeb) {
-    Vibration.vibrate([0, 400, 200, 400, 200, 400]);
+    startNativeOfferAlert(subtitle);
     return;
   }
 

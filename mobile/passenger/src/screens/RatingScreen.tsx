@@ -46,6 +46,9 @@ export default function RatingScreen({ ride, onDone }: Props) {
       <Pressable style={styles.button} onPress={submit}>
         <Text style={styles.buttonText}>Enviar avaliação</Text>
       </Pressable>
+      <Pressable style={styles.skip} onPress={onDone} hitSlop={8}>
+        <Text style={styles.skipText}>Agora não</Text>
+      </Pressable>
     </View>
   );
 }
@@ -72,4 +75,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: { color: theme.ink, fontWeight: '700' },
+  skip: { alignItems: 'center', paddingVertical: 14 },
+  skipText: { color: theme.textSecondary, fontSize: 14, textDecorationLine: 'underline' },
 });

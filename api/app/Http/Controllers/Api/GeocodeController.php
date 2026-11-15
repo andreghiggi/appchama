@@ -2,17 +2,20 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domains\Maps\Services\GooglePlacesService;
 use App\Domains\Maps\Services\MapboxService;
 use App\Domains\Maps\Services\ServiceAreaService;
 use App\Http\Controllers\Controller;
 use App\Models\City;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class GeocodeController extends Controller
 {
     public function __construct(
         private MapboxService $mapbox,
+        private GooglePlacesService $places,
         private ServiceAreaService $serviceArea,
     ) {}
 
@@ -87,8 +90,10 @@ class GeocodeController extends Controller
             }
         }
 
+        $results = $this->withPlaces($data['q'], $search['results'], $center, $maxRadiusKm);
+
         return response()->json([
-            'results' => $search['results'],
+            'results' => $results,
             'filtered_count' => $search['filtered_count'],
             'mapbox_count' => $search['mapbox_count'],
             'max_radius_km' => $maxRadiusKm,
@@ -102,12 +107,58 @@ class GeocodeController extends Controller
         ]);
     }
 
+    /**
+     * Junta os LOCAIS do Google (hospital, supermercado, loja...) aos enderecos do Mapbox.
+     * Busca que parece endereco (rua, numero) mostra enderecos primeiro; as demais, locais primeiro.
+     *
+     * @param  list<array{latitude: float, longitude: float, label: string}>  $addresses
+     * @param  array{latitude: float, longitude: float, label: ?string}  $center
+     * @return list<array{latitude: float, longitude: float, label: string}>
+     */
+    private function withPlaces(string $query, array $addresses, array $center, float $maxRadiusKm): array
+    {
+        if (! $this->places->isConfigured()) {
+            return $addresses;
+        }
+
+        $places = collect($this->places->search($query, $center['latitude'], $center['longitude'], $maxRadiusKm))
+            ->filter(fn (array $p) => $this->serviceArea->distanceKm(
+                $center['latitude'],
+                $center['longitude'],
+                $p['latitude'],
+                $p['longitude'],
+            ) <= $maxRadiusKm)
+            ->values()
+            ->all();
+
+        if ($places === []) {
+            return $addresses;
+        }
+
+        $looksLikeAddress = preg_match('/\d|^\s*(rua|r\.|avenida|av\.?|travessa|estrada|rodovia|alameda|praca|praça|beco)/iu', $query) === 1;
+        $merged = $looksLikeAddress ? array_merge($addresses, $places) : array_merge($places, $addresses);
+
+        $seen = [];
+        $unique = [];
+        foreach ($merged as $item) {
+            $k = round($item['latitude'], 4).','.round($item['longitude'], 4);
+            if (isset($seen[$k])) {
+                continue;
+            }
+            $seen[$k] = true;
+            $unique[] = $item;
+        }
+
+        return array_slice($unique, 0, 8);
+    }
+
     private function contextualQuery(string $query, City $city): string
     {
         $contextQuery = trim($query);
-        $cityNeedle = mb_strtolower($city->name);
+        // Compara sem acento: "guapore" e "Guaporé" sao a mesma cidade.
+        $cityNeedle = Str::ascii(mb_strtolower($city->name));
 
-        if ($cityNeedle !== '' && ! str_contains(mb_strtolower($contextQuery), $cityNeedle)) {
+        if ($cityNeedle !== '' && ! str_contains(Str::ascii(mb_strtolower($contextQuery)), $cityNeedle)) {
             $contextQuery .= ', '.$city->name;
             if ($city->state) {
                 $contextQuery .= ', '.$city->state;

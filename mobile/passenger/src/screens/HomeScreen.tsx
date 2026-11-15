@@ -20,7 +20,8 @@ import {
   type GeocodeResult,
 } from '../../../shared/geocode';
 import { formatBrl } from '../../../shared/fare';
-import { requestCurrentLocation } from '../../../shared/location';
+import { distanciaMetros } from '../../../shared/geo';
+import { requestCurrentLocation, startLocationWatch } from '../../../shared/location';
 import { regiaoPadrao } from '../../../shared/mapaPadrao';
 import { MapLocateButton } from '../../../shared/MapLocateButton';
 import {
@@ -69,6 +70,23 @@ export default function HomeScreen({ onRideActive }: Props) {
   const [nearbyCars, setNearbyCars] = useState<NearbyCar[]>([]);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const regionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Embarque: acompanha o GPS do passageiro ate ele digitar outro endereco ou mover o mapa.
+  const [followGps, setFollowGpsState] = useState(false);
+  const followRef = useRef(false);
+  const lastGpsRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const lastLabelPointRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const originCustomRef = useRef(false);
+  const destinationRef = useRef(false);
+  const [originEditing, setOriginEditing] = useState(false);
+  const [originText, setOriginText] = useState('');
+  const [originSuggestions, setOriginSuggestions] = useState<GeocodeResult[]>([]);
+  const originTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setFollow = (value: boolean) => {
+    followRef.current = value;
+    setFollowGpsState(value);
+  };
+
+  destinationRef.current = Boolean(destinationPoint);
 
   const activePickup = pickupPoint ?? {
     latitude: region.latitude,
@@ -171,13 +189,14 @@ export default function HomeScreen({ onRideActive }: Props) {
     setRegion((r) => ({
       latitude: pickup.latitude,
       longitude: pickup.longitude,
-      latitudeDelta: Math.min(r.latitudeDelta ?? 0.04, 0.08),
-      longitudeDelta: Math.min(r.longitudeDelta ?? 0.04, 0.08),
+      latitudeDelta: Math.min(r.latitudeDelta ?? 0.04, 0.03),
+      longitudeDelta: Math.min(r.longitudeDelta ?? 0.04, 0.03),
     }));
     if (!destinationPoint) {
       setPickupPoint(null);
       const label = await reverseGeocode(pickup.latitude, pickup.longitude);
       setPickupLabel(label);
+      lastLabelPointRef.current = pickup;
     }
     setPickupAreaHint(
       usedCityCenter
@@ -191,6 +210,10 @@ export default function HomeScreen({ onRideActive }: Props) {
     setLocationError(null);
     try {
       const coords = await requestCurrentLocation();
+      lastGpsRef.current = coords;
+      originCustomRef.current = false;
+      setFollow(true);
+      setOriginEditing(false);
       const { city: activeCity, withinServiceArea } = await resolveCityAt(coords);
       if (activeCity && withinServiceArea) {
         await applyPickup(coords, activeCity);
@@ -222,6 +245,15 @@ export default function HomeScreen({ onRideActive }: Props) {
   }) => {
     setRegion(next);
     if (destinationPoint) return;
+
+    // Mapa arrastado para longe: deixa de seguir o GPS e de usar o endereco digitado.
+    const gps = lastGpsRef.current;
+    if (followRef.current && gps && distanciaMetros(next, gps) > 120) setFollow(false);
+    if (pickupPoint && distanciaMetros(next, pickupPoint) > 80) {
+      setPickupPoint(null);
+      setPickupLabel(null);
+      originCustomRef.current = false;
+    }
 
     if (regionTimer.current) clearTimeout(regionTimer.current);
     regionTimer.current = setTimeout(() => {
@@ -270,6 +302,27 @@ export default function HomeScreen({ onRideActive }: Props) {
   useEffect(() => {
     (async () => {
       try {
+        if (originCustomRef.current) return;
+
+        // 1) GPS real do passageiro vem primeiro; o endereco do cadastro e so reserva.
+        const gps = await requestCurrentLocation().catch((e: unknown) => {
+          setLocationError(e instanceof Error ? e.message : 'Não foi possível obter sua localização.');
+          return null;
+        });
+        if (gps) {
+          lastGpsRef.current = gps;
+          setLocationError(null);
+          const { city: gpsCity, withinServiceArea: dentro } = await resolveCityAt(gps);
+          if (gpsCity && dentro) {
+            setFollow(true);
+            await applyPickup(gps, gpsCity);
+            return;
+          }
+          setPickupAreaHint(
+            'Sua localização está fora da área de operação. Escolha a cidade ou digite o endereço de embarque.',
+          );
+        }
+
         const homeLat = user?.home_lat != null ? Number(user.home_lat) : null;
         const homeLng = user?.home_lng != null ? Number(user.home_lng) : null;
 
@@ -293,15 +346,6 @@ export default function HomeScreen({ onRideActive }: Props) {
           return;
         }
 
-        const coords = await requestCurrentLocation().catch(() => null);
-        if (coords) {
-          const { city: activeCity, withinServiceArea } = await resolveCityAt(coords);
-          if (activeCity && withinServiceArea) {
-            await applyPickup(coords, activeCity);
-            return;
-          }
-        }
-
         if (operatingCities.length === 1) {
           await selectOperatingCity(operatingCities[0]);
         }
@@ -312,6 +356,44 @@ export default function HomeScreen({ onRideActive }: Props) {
       }
     })();
   }, [user?.home_lat, user?.home_lng, user?.home_address, user?.home_city, operatingCities.length]);
+
+  // Segue o GPS enquanto o passageiro nao escolheu outro embarque.
+  useEffect(() => {
+    const stop = startLocationWatch((coords) => {
+      lastGpsRef.current = coords;
+      if (!followRef.current || destinationRef.current || originCustomRef.current) return;
+      const anterior = lastLabelPointRef.current;
+      if (anterior && distanciaMetros(anterior, coords) < 20) return;
+      lastLabelPointRef.current = coords;
+      setPickupPoint(null);
+      setRegion((r) => ({ ...r, latitude: coords.latitude, longitude: coords.longitude }));
+      void reverseGeocode(coords.latitude, coords.longitude).then((label) => {
+        if (followRef.current && !destinationRef.current) setPickupLabel(label);
+      });
+    }, 8000);
+    return stop;
+  }, []);
+
+  // Busca de endereco para o campo "De" (o passageiro pode digitar o embarque).
+  useEffect(() => {
+    if (originTimer.current) clearTimeout(originTimer.current);
+    const q = originText.trim();
+    if (!originEditing || q.length < 3) {
+      setOriginSuggestions([]);
+      return;
+    }
+    originTimer.current = setTimeout(async () => {
+      try {
+        const { results } = await searchAddresses(q, activePickup, city?.id);
+        setOriginSuggestions(results);
+      } catch {
+        setOriginSuggestions([]);
+      }
+    }, 450);
+    return () => {
+      if (originTimer.current) clearTimeout(originTimer.current);
+    };
+  }, [originText, originEditing]);
 
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -404,6 +486,19 @@ export default function HomeScreen({ onRideActive }: Props) {
       cancelled = true;
     };
   }, [city, destinationPoint, pickupPoint, activePickup.latitude, activePickup.longitude]);
+
+  const selectOrigin = async (item: GeocodeResult) => {
+    const ponto = { latitude: item.latitude, longitude: item.longitude };
+    originCustomRef.current = true;
+    setFollow(false);
+    setOriginEditing(false);
+    setOriginSuggestions([]);
+    setOriginText('');
+    setPickupPoint(ponto);
+    setPickupLabel(item.label);
+    setRegion((r) => ({ ...r, latitude: ponto.latitude, longitude: ponto.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }));
+    await resolveCityAt(ponto);
+  };
 
   const selectDestination = async (item: GeocodeResult) => {
     const frozenPickup = {
@@ -520,10 +615,8 @@ export default function HomeScreen({ onRideActive }: Props) {
         contentContainerStyle={styles.sheet}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.greet}>Escolha o destino</Text>
         {operatingCities.length > 0 ? (
           <View style={styles.cityPicker}>
-            <Text style={styles.cityPickerLabel}>Cidade de operação</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {operatingCities.map((item) => {
                 const selected = city?.id === item.id;
@@ -552,10 +645,42 @@ export default function HomeScreen({ onRideActive }: Props) {
           <View style={[styles.routeBadge, styles.routeBadgeFrom]}>
             <Text style={styles.routeBadgeText}>De</Text>
           </View>
-          <Text style={styles.routeValue} numberOfLines={2}>
-            {pickupLabel ?? 'Minha localização'}
-          </Text>
+          <View style={styles.routeInputWrap}>
+            <TextInput
+              style={styles.routeInput}
+              placeholder="Digite outro endereço de embarque"
+              placeholderTextColor={theme.textMuted}
+              value={originEditing ? originText : (pickupLabel ?? (followGps ? 'Minha localização' : 'Ponto escolhido no mapa'))}
+              onFocus={() => {
+                setOriginEditing(true);
+                setOriginText('');
+              }}
+              onBlur={() => setTimeout(() => setOriginEditing(false), 200)}
+              onChangeText={setOriginText}
+            />
+            <Pressable style={styles.clearBtn} onPress={() => void centerOnUser()} hitSlop={6}>
+              <Text style={styles.clearBtnText}>◎</Text>
+            </Pressable>
+          </View>
         </View>
+        {followGps && !originEditing ? (
+          <Text style={styles.gpsHint}>● Usando sua localização atual · toque no endereço para digitar outro</Text>
+        ) : null}
+        {originSuggestions.length > 0 ? (
+          <View style={styles.suggestions}>
+            {originSuggestions.map((item) => (
+              <Pressable
+                key={`o-${item.latitude}-${item.longitude}`}
+                style={styles.suggestionItem}
+                onPress={() => void selectOrigin(item)}
+              >
+                <Text style={styles.suggestionText} numberOfLines={2}>
+                  {item.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         <View style={styles.routeRow}>
           <View style={[styles.routeBadge, styles.routeBadgeTo]}>
@@ -618,6 +743,8 @@ export default function HomeScreen({ onRideActive }: Props) {
             </Text>
           </View>
         ) : null}
+      </ScrollView>
+      <View style={styles.footer}>
         <Pressable style={styles.button} onPress={requestRide} disabled={loading || Boolean(areaError)}>
           {loading ? (
             <ActivityIndicator color={theme.ink} />
@@ -625,14 +752,14 @@ export default function HomeScreen({ onRideActive }: Props) {
             <Text style={styles.buttonText}>Pedir corrida</Text>
           )}
         </Pressable>
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg, minHeight: '100%' as unknown as number },
-  mapWrap: { flex: 1, minHeight: 280, maxHeight: '58%' as unknown as number, position: 'relative' },
+  mapWrap: { flex: 1, minHeight: 200, maxHeight: '50%' as unknown as number, position: 'relative' },
   map: { flex: 1, minHeight: 240 },
   locationBanner: {
     backgroundColor: '#FEF3C7',
@@ -665,7 +792,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     padding: 18,
-    paddingBottom: 24,
+    paddingBottom: 8,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -689,7 +816,9 @@ const styles = StyleSheet.create({
   },
   cityChipText: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
   cityChipTextActive: { color: theme.mint },
-  cityHint: { fontSize: 12, color: theme.mint, fontWeight: '600', marginBottom: 14 },
+  cityHint: { fontSize: 12, color: theme.mint, fontWeight: '600', marginBottom: 10 },
+  gpsHint: { fontSize: 11, color: theme.mint, fontWeight: '600', marginTop: -4, marginBottom: 10 },
+  footer: { backgroundColor: theme.paper, paddingHorizontal: 18, paddingTop: 8, paddingBottom: 14 },
   routeRow: {
     flexDirection: 'row',
     alignItems: 'center',

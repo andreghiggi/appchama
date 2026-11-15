@@ -51,6 +51,11 @@ return [
         'token' => env('MAPBOX_ACCESS_TOKEN'),
     ],
 
+    'google' => [
+        // Chave de SERVIDOR (Places API New), restrita ao IP da VPS. Sem ela a busca por locais fica desligada.
+        'places_key' => env('GOOGLE_PLACES_API_KEY'),
+    ],
+
     'asaas' => [
         'api_key' => env('ASAAS_API_KEY'),
         'environment' => env('ASAAS_ENVIRONMENT', 'sandbox'),
