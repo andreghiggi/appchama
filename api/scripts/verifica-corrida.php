@@ -137,6 +137,36 @@ try {
         [$s] = $api('POST', "/rides/{$ride->id}/cancel", [], $tokM);
         $check('cancelar corrida ja finalizada devolve 422 (nao 500)', $s === 422, "status=$s");
     }
+    echo "== 3c. Aviso de pagamento do Asaas fecha a corrida (cartao e Pix); recarga de credito\n";
+    $check('tabela das recargas existe e o modelo aponta para ela', \Illuminate\Support\Facades\Schema::hasTable((new \App\Models\WalletRecharge)->getTable()), (new \App\Models\WalletRecharge)->getTable());
+    $vai->forceFill(['asaas_webhook_token' => 'token-de-teste'])->save();
+    $webhook = fn (array $corpo) => $api('POST', '/webhooks/asaas', $corpo, null, [], 'api.vaide55.com.br', ['HTTP_ASAAS_ACCESS_TOKEN' => 'token-de-teste']);
+    $rP = isset($ride) ? Ride::query()->withoutGlobalScopes()->find($ride->id) : null;
+    if ($rP && $rP->status === 'awaiting_payment') {
+        // o Asaas avisa "cobranca confirmada" (PAYMENT_CONFIRMED) com o codigo da cobranca e a corrida em externalReference
+        [$s, $j, $raw] = $webhook(['event' => 'PAYMENT_CONFIRMED', 'payment' => ['id' => 'pay_0_teste', 'externalReference' => $rP->id, 'billingType' => 'CREDIT_CARD']]);
+        $check('aviso PAYMENT_CONFIRMED responde 200 (sem erro de tabela)', $s === 200, "status=$s ".substr($raw, 0, 200));
+        $rP = Ride::query()->withoutGlobalScopes()->find($rP->id);
+        $check('corrida fica concluida e paga depois do aviso', $rP->status === 'completed' && $rP->payment_status === 'paid', $rP->status.'/'.$rP->payment_status);
+        [$s] = $webhook(['event' => 'PAYMENT_CONFIRMED', 'payment' => ['id' => 'pay_0_teste', 'externalReference' => $rP->id, 'billingType' => 'CREDIT_CARD']]);
+        $check('aviso repetido responde 200 e nao paga duas vezes', $s === 200);
+    } else {
+        $check('corrida em aguardando pagamento para o teste do aviso', false, 'status='.($rP->status ?? '?'));
+    }
+    // recarga de credito do motorista por Pix: o motorista sem CPF e orientado a informar (e nunca e travado sem saida)
+    [$s, $j] = $api('GET', '/drivers/wallet', [], $tokM);
+    $check('carteira avisa que falta o CPF do motorista', $s === 200 && ($j['needs_cpf'] ?? null) === true, "status=$s");
+    [$s, $j, $raw] = $api('POST', '/drivers/wallet/recharges', ['amount' => 20], $tokM);
+    $check('recarga sem CPF devolve 422 pedindo o CPF (nao 500)', $s === 422 && str_contains($raw, 'CPF'), "status=$s ".substr($raw, 0, 160));
+    [$s, $j, $raw] = $api('POST', '/drivers/wallet/recharges', ['amount' => 20, 'cpf' => '11111111111'], $tokM);
+    $check('recarga com CPF invalido devolve 422', $s === 422, "status=$s ".substr($raw, 0, 160));
+    [$s, $j, $raw] = $api('POST', '/drivers/wallet/recharges', ['amount' => 20, 'cpf' => '11144477735'], $tokM);
+    $check('recarga com CPF valido guarda o CPF e segue (sem Asaas no teste: 503 ou 201)', in_array($s, [201, 503], true) && User::query()->withoutGlobalScopes()->find($drvUser->id)->cpf === '11144477735', "status=$s ".substr($raw, 0, 160));
+    [$s, $j] = $api('GET', '/drivers/wallet', [], $tokM);
+    $check('depois de informar o CPF a carteira nao pede de novo', $s === 200 && ($j['needs_cpf'] ?? null) === false, "status=$s");
+    [$s, $j, $raw] = $webhook(['event' => 'PAYMENT_CONFIRMED', 'payment' => ['id' => 'pay_0_recarga', 'externalReference' => 'wallet-recharge:00000000-0000-0000-0000-000000000000']]);
+    $check('aviso de recarga inexistente nao derruba o servidor', $s === 200, "status=$s ".substr($raw, 0, 160));
+
     [$s, $j, $raw] = $api('GET', '/drivers/nearby?lat=-29.2356&lng=-51.8711&radius_km=5', [], $tokP);
     $check('passageiro consulta carrinhos por perto', $s === 200 && isset($j['drivers']), "status=$s ".substr($raw, 0, 160));
     $check('carrinhos nao expoem id real, nome nem telefone', ! str_contains($raw, $drvUser->id) && ! str_contains($raw, '51977000001') && ! str_contains($raw, 'Motorista Teste'));

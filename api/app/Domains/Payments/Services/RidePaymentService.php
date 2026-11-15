@@ -19,6 +19,14 @@ class RidePaymentService
         return $ride->tenant ?? Tenant::query()->findOrFail($ride->tenant_id);
     }
 
+    /** Página pública "pagamento recebido, volte ao app" (https do domínio da API da marca). */
+    public function returnUrl(Tenant $tenant): string
+    {
+        $host = $tenant->domains()->where('type', 'api')->value('host');
+
+        return rtrim($host ? 'https://'.$host : (string) config('app.url'), '/').'/pagamento/retorno';
+    }
+
     public function enabledMethods(Tenant $tenant): array
     {
         $methods = $tenant->enabledPaymentMethods();
@@ -141,7 +149,10 @@ class RidePaymentService
 
         if ($method === 'credit_card') {
             abort_unless($enabled['credit_card'] ?? false, 422, 'Cartão não habilitado.');
-            abort_unless($successUrl && $cancelUrl, 422, 'URLs de retorno obrigatórias para cartão.');
+            // O app de celular não tem endereço web para voltar: usa a página de retorno da própria API da marca.
+            $retorno = $this->returnUrl($tenant);
+            $successUrl = $successUrl ?: $retorno.'?status=ok';
+            $cancelUrl = $cancelUrl ?: $retorno.'?status=cancelado';
 
             return $this->asaasPayments->createCheckoutPayment($ride, $tenant, $successUrl, $cancelUrl);
         }
@@ -233,13 +244,21 @@ class RidePaymentService
             }
 
             if ($asaasPaymentId) {
-                RidePayment::query()
+                $atualizados = RidePayment::query()
                     ->where('ride_id', $ride->id)
                     ->where(function ($q) use ($asaasPaymentId): void {
                         $q->where('asaas_payment_id', $asaasPaymentId)
                             ->orWhere('asaas_checkout_id', $asaasPaymentId);
                     })
                     ->update(['status' => 'paid']);
+                // No cartao (checkout) o Asaas avisa com o codigo da cobranca, que nao e o do checkout guardado: marca o pendente da corrida.
+                if ($atualizados === 0) {
+                    RidePayment::query()
+                        ->where('ride_id', $ride->id)
+                        ->where('method', $method)
+                        ->where('status', 'pending')
+                        ->update(['status' => 'paid']);
+                }
             } elseif ($method === 'direct_driver') {
                 RidePayment::query()->create([
                     'tenant_id' => $ride->tenant_id,

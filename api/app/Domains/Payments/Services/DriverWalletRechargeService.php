@@ -8,11 +8,17 @@ class DriverWalletRechargeService {
     public function createPix(Driver $driver, Tenant $tenant, float $amount): array {
         abort_unless($amount >= 20, 422, 'A recarga mínima é de R$ 20,00.');
         abort_unless($this->client->isConfigured($tenant), 503, 'Gateway de pagamento não configurado.');
-        $driver->loadMissing('user'); $customer = $this->customers->ensureForUser($driver->user, $tenant);
+        $driver->loadMissing('user'); $customer = $this->customers->ensureForDriver($driver->user, $tenant);
         $recharge = WalletRecharge::query()->create(['tenant_id'=>$tenant->id,'driver_id'=>$driver->user_id,'amount'=>round($amount,2),'status'=>'pending']);
+        try {
         $payment = $this->client->post('/payments', ['customer'=>$customer,'billingType'=>'PIX','value'=>(float)$recharge->amount,'dueDate'=>now()->addDay()->format('Y-m-d'),'description'=>'Recarga carteira Chama #'.substr($recharge->id,0,8),'externalReference'=>'wallet-recharge:'.$recharge->id], $tenant);
         $id=$payment['id']??null; abort_unless($id,422,'Falha ao criar cobrança de recarga.');
         $pix=$this->client->get("/payments/{$id}/pixQrCode",$tenant); $recharge->update(['asaas_payment_id'=>$id,'payload'=>['payment'=>$payment,'pix'=>$pix]]);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            // Conta Asaas sem chave Pix ativa (ou fora do ar): nao deixa recarga pendente e fala em portugues claro.
+            $recharge->delete();
+            abort(422, 'O Pix de recarga está indisponível no momento. Tente novamente mais tarde ou fale com o suporte.');
+        }
         return ['recharge'=>$recharge->fresh(),'pix_qr_code'=>$pix['encodedImage']??null,'pix_copy_paste'=>$pix['payload']??null];
     }
     public function confirm(WalletRecharge $recharge): void {

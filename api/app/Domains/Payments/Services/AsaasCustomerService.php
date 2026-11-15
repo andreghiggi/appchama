@@ -30,6 +30,26 @@ class AsaasCustomerService
         return $customerId;
     }
 
+    /** Cliente do Asaas para o MOTORISTA (recarga de credito): exige so nome completo e CPF, sem endereco. */
+    public function ensureForDriver(User $user, Tenant $tenant): string
+    {
+        abort_unless($user->hasFullName(), 422, 'Informe seu nome completo (nome e sobrenome) no cadastro antes de recarregar.');
+        abort_unless(filled($user->cpf) && Cpf::isValid((string) $user->cpf), 422, 'Informe seu CPF para gerar o Pix de recarga.');
+
+        if ($user->asaas_customer_id) {
+            $this->client->post('/customers/'.$user->asaas_customer_id, array_filter($this->customerPayload($user), fn ($v) => filled($v)), $tenant);
+
+            return $user->asaas_customer_id;
+        }
+
+        $customer = $this->client->post('/customers', array_filter($this->customerPayload($user), fn ($v) => filled($v)), $tenant);
+        $customerId = $customer['id'] ?? null;
+        abort_unless($customerId, 422, 'Falha ao criar cliente no Asaas.');
+        $user->update(['asaas_customer_id' => $customerId]);
+
+        return $customerId;
+    }
+
     public function syncCustomer(User $user, Tenant $tenant): void
     {
         if (! $user->asaas_customer_id || ! $user->hasPaymentProfile()) {
@@ -61,6 +81,7 @@ class AsaasCustomerService
 
     public function assertPaymentProfile(User $user): void
     {
+        abort_unless($user->hasFullName(), 422, 'Informe seu nome completo (nome e sobrenome) antes de pagar.');
         abort_unless($user->hasPaymentProfile(), 422, 'Complete CPF, e-mail e endereço antes de pagar.');
     }
 

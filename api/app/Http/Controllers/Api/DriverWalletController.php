@@ -32,6 +32,7 @@ class DriverWalletController extends Controller
             ...$summary,
             'payout_pix_key' => $driver->payout_pix_key,
             'payout_pix_key_type' => $driver->payout_pix_key_type,
+            'needs_cpf' => blank($request->user()->cpf),
         ]);
     }
 
@@ -56,7 +57,16 @@ class DriverWalletController extends Controller
     public function recharge(Request $request): JsonResponse
     {
         $driver = $request->user()->driver; abort_unless($driver, 403);
-        $data = $request->validate(['amount' => 'required|numeric|min:20']);
+        $data = $request->validate([
+            'amount' => 'required|numeric|min:20',
+            'cpf' => ['nullable', 'string', 'size:11', 'regex:/^\d{11}$/'],
+        ]);
+        $user = $request->user();
+        if (blank($user->cpf) && ! empty($data['cpf'])) {
+            abort_unless(\App\Support\Cpf::isValid($data['cpf']), 422, 'CPF inválido.');
+            $user->update(['cpf' => $data['cpf']]);
+        }
+        abort_unless(filled($user->cpf), 422, 'Informe seu CPF para gerar o Pix de recarga.');
         $tenant = Tenant::query()->findOrFail($driver->user->tenant_id);
         return response()->json($this->rechargeService->createPix($driver, $tenant, (float) $data['amount']), 201);
     }

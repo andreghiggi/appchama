@@ -38,7 +38,12 @@ class AsaasPaymentService
         $paymentId = $asaasPayment['id'] ?? null;
         abort_unless($paymentId, 422, 'Falha ao criar cobrança Pix.');
 
-        $pixData = $this->client->get("/payments/{$paymentId}/pixQrCode", $tenant);
+        try {
+            $pixData = $this->client->get("/payments/{$paymentId}/pixQrCode", $tenant);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
+            // Conta Asaas sem chave Pix ativa (ou fora do ar): mensagem que o passageiro entende, sem jargão do gateway.
+            abort(422, 'O Pix está indisponível no momento. Tente pagar com cartão ou fale com o suporte.');
+        }
 
         $ridePayment = RidePayment::query()->create([
             'tenant_id' => $tenant->id,

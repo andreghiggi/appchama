@@ -72,6 +72,7 @@ export const api = {
     }),
 
   updateProfile: (payload: {
+    name?: string;
     cpf: string;
     email: string;
     home_address: string;
@@ -271,10 +272,10 @@ export const api = {
   getDriverWallet: () => request<DriverWalletInfo>('/drivers/wallet'),
 
   /** Gera o Pix de recarga do crédito de comissão (mínimo R$ 20). */
-  rechargeWallet: (amount: number) =>
+  rechargeWallet: (amount: number, cpf?: string) =>
     request<{ recharge: { id: string; amount: number | string; status: string }; pix_qr_code: string | null; pix_copy_paste: string | null }>(
       '/drivers/wallet/recharges',
-      { method: 'POST', body: JSON.stringify({ amount }) },
+      { method: 'POST', body: JSON.stringify(cpf ? { amount, cpf } : { amount }) },
     ),
 
   updatePayoutAccount: (pixKey: string, pixKeyType: string) =>

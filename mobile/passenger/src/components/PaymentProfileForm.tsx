@@ -22,6 +22,7 @@ function onlyDigits(value: string, max?: number): string {
 }
 
 export default function PaymentProfileForm({ user, onSaved }: Props) {
+  const [name, setName] = useState(user.name ?? '');
   const [cpf, setCpf] = useState(user.cpf ?? '');
   const [email, setEmail] = useState(user.email ?? '');
   const [address, setAddress] = useState(user.home_address ?? '');
@@ -36,7 +37,13 @@ export default function PaymentProfileForm({ user, onSaved }: Props) {
     setLoading(true);
     setError(null);
     try {
+      if (name.trim().split(/\s+/).filter(Boolean).length < 2) {
+        setError('Informe nome e sobrenome.');
+        setLoading(false);
+        return;
+      }
       const updated = await api.updateProfile({
+        name: name.trim(),
         cpf: onlyDigits(cpf, 11),
         email: email.trim(),
         home_address: address.trim(),
@@ -59,9 +66,16 @@ export default function PaymentProfileForm({ user, onSaved }: Props) {
     <View style={styles.box}>
       <Text style={styles.title}>Dados para pagamento</Text>
       <Text style={styles.subtitle}>
-        Informe CPF, e-mail e endereço completos para pagar com Pix ou cartão.
+        Informe nome completo, CPF, e-mail e endereço para pagar com Pix ou cartão.
       </Text>
 
+      <TextInput
+        style={styles.input}
+        placeholder="Nome completo (nome e sobrenome)"
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
+      />
       <TextInput
         style={styles.input}
         placeholder="CPF (somente números)"

@@ -17,6 +17,7 @@ class ProfileController extends Controller
         abort_unless($user->isPassenger(), 403);
 
         $data = $request->validate([
+            'name' => ['nullable', 'string', 'max:120'],
             'cpf' => ['required', 'string', 'size:11', 'regex:/^\d{11}$/'],
             'email' => ['required', 'email', 'max:120'],
             'home_address' => ['required', 'string', 'max:255'],
@@ -32,7 +33,13 @@ class ProfileController extends Controller
             abort(422, 'CPF inválido.');
         }
 
+        $nome = trim((string) ($data['name'] ?? ''));
+        if ($nome !== '' && preg_match('/\S+\s+\S+/u', $nome) !== 1) {
+            abort(422, 'Informe nome e sobrenome.');
+        }
+
         $user->update([
+            'name' => $nome !== '' ? $nome : $user->name,
             'cpf' => $data['cpf'],
             'email' => $data['email'],
             'home_address' => $data['home_address'],

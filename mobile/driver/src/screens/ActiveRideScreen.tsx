@@ -86,6 +86,7 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
     };
   }, []);
 
+  const pagamentoDireto = ride?.payment_method === 'direct_driver';
   const lat = toNumber(ride?.origin_lat, -23.5505);
   const lng = toNumber(ride?.origin_lng, -46.6333);
   const destLat = toNumber(ride?.destination_lat, lat + 0.02);
@@ -211,14 +212,20 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
 
         {ride.status === 'awaiting_payment' && (
           <>
-            <Text style={styles.meta}>Aguardando pagamento do passageiro.</Text>
-            <Pressable style={styles.button} onPress={confirmDirect} disabled={confirmingDirect}>
-              {confirmingDirect ? (
-                <ActivityIndicator color={theme.ink} />
-              ) : (
-                <Text style={styles.buttonText}>Confirmar recebimento (direto)</Text>
-              )}
-            </Pressable>
+            <Text style={styles.meta}>
+              {pagamentoDireto
+                ? 'O passageiro vai pagar direto a você (dinheiro ou Pix pessoal).'
+                : 'Aguardando o passageiro pagar pelo app (Pix ou cartão). A corrida finaliza sozinha quando o pagamento cair.'}
+            </Text>
+            {pagamentoDireto ? (
+              <Pressable style={styles.button} onPress={confirmDirect} disabled={confirmingDirect}>
+                {confirmingDirect ? (
+                  <ActivityIndicator color={theme.ink} />
+                ) : (
+                  <Text style={styles.buttonText}>Confirmar recebimento (direto)</Text>
+                )}
+              </Pressable>
+            ) : null}
             <Pressable style={styles.navLink} onPress={onDone}>
               <Text style={styles.navLinkText}>Voltar ao painel</Text>
             </Pressable>
@@ -268,15 +275,19 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
             <Text style={styles.modalTitle}>Aguardando pagamento</Text>
             <Text style={styles.modalFare}>Valor líquido: {formatBrl(completedFare ?? 0)}</Text>
             <Text style={styles.meta}>
-              O passageiro paga pelo app (Pix/cartão) ou confirme se recebeu pagamento direto.
+              {pagamentoDireto
+                ? 'O passageiro escolheu pagar direto: confirme quando receber.'
+                : 'O passageiro está pagando pelo app (Pix ou cartão). Você será avisado quando cair.'}
             </Text>
-            <Pressable style={styles.button} onPress={confirmDirect} disabled={confirmingDirect}>
-              {confirmingDirect ? (
-                <ActivityIndicator color={theme.ink} />
-              ) : (
-                <Text style={styles.buttonText}>Confirmar recebimento (direto)</Text>
-              )}
-            </Pressable>
+            {pagamentoDireto ? (
+              <Pressable style={styles.button} onPress={confirmDirect} disabled={confirmingDirect}>
+                {confirmingDirect ? (
+                  <ActivityIndicator color={theme.ink} />
+                ) : (
+                  <Text style={styles.buttonText}>Confirmar recebimento (direto)</Text>
+                )}
+              </Pressable>
+            ) : null}
             <Pressable
               style={styles.navLink}
               onPress={() => {
