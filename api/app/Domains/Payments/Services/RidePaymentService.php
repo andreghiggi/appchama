@@ -244,13 +244,21 @@ class RidePaymentService
             }
 
             if ($asaasPaymentId) {
-                RidePayment::query()
+                $atualizados = RidePayment::query()
                     ->where('ride_id', $ride->id)
                     ->where(function ($q) use ($asaasPaymentId): void {
                         $q->where('asaas_payment_id', $asaasPaymentId)
                             ->orWhere('asaas_checkout_id', $asaasPaymentId);
                     })
                     ->update(['status' => 'paid']);
+                // No cartao (checkout) o Asaas avisa com o codigo da cobranca, que nao e o do checkout guardado: marca o pendente da corrida.
+                if ($atualizados === 0) {
+                    RidePayment::query()
+                        ->where('ride_id', $ride->id)
+                        ->where('method', $method)
+                        ->where('status', 'pending')
+                        ->update(['status' => 'paid']);
+                }
             } elseif ($method === 'direct_driver') {
                 RidePayment::query()->create([
                     'tenant_id' => $ride->tenant_id,
