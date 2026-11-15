@@ -153,6 +153,17 @@ try {
     } else {
         $check('corrida em aguardando pagamento para o teste do aviso', false, 'status='.($rP->status ?? '?'));
     }
+    // recarga de credito do motorista por Pix: o motorista sem CPF e orientado a informar (e nunca e travado sem saida)
+    [$s, $j] = $api('GET', '/drivers/wallet', [], $tokM);
+    $check('carteira avisa que falta o CPF do motorista', $s === 200 && ($j['needs_cpf'] ?? null) === true, "status=$s");
+    [$s, $j, $raw] = $api('POST', '/drivers/wallet/recharges', ['amount' => 20], $tokM);
+    $check('recarga sem CPF devolve 422 pedindo o CPF (nao 500)', $s === 422 && str_contains($raw, 'CPF'), "status=$s ".substr($raw, 0, 160));
+    [$s, $j, $raw] = $api('POST', '/drivers/wallet/recharges', ['amount' => 20, 'cpf' => '11111111111'], $tokM);
+    $check('recarga com CPF invalido devolve 422', $s === 422, "status=$s ".substr($raw, 0, 160));
+    [$s, $j, $raw] = $api('POST', '/drivers/wallet/recharges', ['amount' => 20, 'cpf' => '11144477735'], $tokM);
+    $check('recarga com CPF valido guarda o CPF e segue (sem Asaas no teste: 503 ou 201)', in_array($s, [201, 503], true) && User::query()->withoutGlobalScopes()->find($drvUser->id)->cpf === '11144477735', "status=$s ".substr($raw, 0, 160));
+    [$s, $j] = $api('GET', '/drivers/wallet', [], $tokM);
+    $check('depois de informar o CPF a carteira nao pede de novo', $s === 200 && ($j['needs_cpf'] ?? null) === false, "status=$s");
     [$s, $j, $raw] = $webhook(['event' => 'PAYMENT_CONFIRMED', 'payment' => ['id' => 'pay_0_recarga', 'externalReference' => 'wallet-recharge:00000000-0000-0000-0000-000000000000']]);
     $check('aviso de recarga inexistente nao derruba o servidor', $s === 200, "status=$s ".substr($raw, 0, 160));
 

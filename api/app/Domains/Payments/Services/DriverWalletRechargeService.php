@@ -8,7 +8,7 @@ class DriverWalletRechargeService {
     public function createPix(Driver $driver, Tenant $tenant, float $amount): array {
         abort_unless($amount >= 20, 422, 'A recarga mínima é de R$ 20,00.');
         abort_unless($this->client->isConfigured($tenant), 503, 'Gateway de pagamento não configurado.');
-        $driver->loadMissing('user'); $customer = $this->customers->ensureForUser($driver->user, $tenant);
+        $driver->loadMissing('user'); $customer = $this->customers->ensureForDriver($driver->user, $tenant);
         $recharge = WalletRecharge::query()->create(['tenant_id'=>$tenant->id,'driver_id'=>$driver->user_id,'amount'=>round($amount,2),'status'=>'pending']);
         $payment = $this->client->post('/payments', ['customer'=>$customer,'billingType'=>'PIX','value'=>(float)$recharge->amount,'dueDate'=>now()->addDay()->format('Y-m-d'),'description'=>'Recarga carteira Chama #'.substr($recharge->id,0,8),'externalReference'=>'wallet-recharge:'.$recharge->id], $tenant);
         $id=$payment['id']??null; abort_unless($id,422,'Falha ao criar cobrança de recarga.');

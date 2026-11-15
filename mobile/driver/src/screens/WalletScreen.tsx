@@ -30,6 +30,7 @@ export default function WalletScreen({ onBack }: Props) {
     balance_available: number;
     prepaid_balance?: number;
     prepaid_recharge_minimum?: number;
+    needs_cpf?: boolean;
     total_earnings: number;
     payout_pix_key?: string | null;
     payout_pix_key_type?: string | null;
@@ -41,6 +42,7 @@ export default function WalletScreen({ onBack }: Props) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState('20');
+  const [cpf, setCpf] = useState('');
   const [pix, setPix] = useState<{ qr: string | null; code: string | null; valor: number } | null>(null);
   const saldoAntesRef = useRef(0);
 
@@ -77,11 +79,16 @@ export default function WalletScreen({ onBack }: Props) {
       Alert.alert('Valor inválido', `A recarga mínima é ${formatBrl(minimo)}.`);
       return;
     }
+    if (wallet?.needs_cpf && cpf.replace(/\D/g, '').length !== 11) {
+      Alert.alert('CPF necessário', 'Informe seu CPF (11 números) para gerar o Pix de recarga.');
+      return;
+    }
     setSubmitting(true);
     try {
       saldoAntesRef.current = wallet?.prepaid_balance ?? 0;
-      const r = await api.rechargeWallet(valor);
+      const r = await api.rechargeWallet(valor, wallet?.needs_cpf ? cpf.replace(/\D/g, '') : undefined);
       setPix({ qr: r.pix_qr_code, code: r.pix_copy_paste, valor });
+      if (wallet?.needs_cpf) setWallet({ ...wallet, needs_cpf: false });
     } catch (e: unknown) {
       Alert.alert('Não foi possível gerar o Pix', e instanceof Error ? e.message : 'Tente novamente.');
     } finally {
@@ -198,6 +205,16 @@ export default function WalletScreen({ onBack }: Props) {
         </View>
       ) : (
         <>
+          {wallet?.needs_cpf ? (
+            <TextInput
+              style={styles.input}
+              placeholder="Seu CPF (somente números) - necessário uma vez"
+              value={cpf}
+              onChangeText={(v) => setCpf(v.replace(/\D/g, '').slice(0, 11))}
+              keyboardType="number-pad"
+              maxLength={11}
+            />
+          ) : null}
           <TextInput
             style={styles.input}
             placeholder="Valor da recarga (R$)"
