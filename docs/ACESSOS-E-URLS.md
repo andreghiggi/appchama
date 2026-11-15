@@ -36,8 +36,8 @@ DNS do `vaide55.com.br`: delegado no Registro.br para `ns1.i9tecinfo.com.br` e `
 
 | App | Pacote | APK de teste |
 |---|---|---|
-| Vai de 55 (passageiro) | `com.vaide55.passageiro` | https://expo.dev/artifacts/eas/p1udMXNZzCz8MexsUgYhaB_3H1f679i6apoxRROU-30.apk (15/11, versão 4: tela da corrida estilo Uber, pagamento com cartão corrigido, nome completo no pagamento; os links antigos não usar) |
-| Vai de 55 Motorista | `com.vaide55.motorista` | https://expo.dev/artifacts/eas/jv4HqqfvGqrfZv849zafbQC_raNWhb2TS7c_Koedzso.apk (15/11, versão 4: GPS, painel com tempo online, minhas corridas, confirmar recebimento direto só quando o passageiro escolher; os links antigos não usar) |
+| Vai de 55 (passageiro) | `com.vaide55.passageiro` | https://expo.dev/artifacts/eas/mrWIqrv_3EWGWxUAM_ajNWvpq30ISMCilIATIKz61E8.apk (15/11, versão 5: tela da corrida estilo Uber, cartão corrigido, nome completo no pagamento; os links antigos não usar) |
+| Vai de 55 Motorista | `com.vaide55.motorista` | https://expo.dev/artifacts/eas/Fimlx0uGM_fNC60TXOtMxq0RfIBm2q21MXbvTNVhZzI.apk (15/11, versão 5: GPS, painel com tempo online, minhas corridas, recarga Pix pede CPF, recebimento direto só quando o passageiro escolher; os links antigos não usar) |
 
 - Instalar: abrir o link no celular Android e permitir "instalar de fontes desconhecidas".
 - **Os pacotes `com.vaide55.*` são permanentes depois de publicados nas lojas.**
