@@ -32,9 +32,8 @@ import {
 } from '../../../shared/serviceArea';
 import { AppMap, AppMarker, AppNearbyCars, AppRoute, type NearbyCar } from '../../../shared/SimpleMap';
 import { theme } from '../../../shared/theme';
-import { useAlturaTeclado } from '../../../shared/TelaSegura';
 import type { City, Ride } from '../../../shared/types';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import BuscaEnderecoTela from '../components/BuscaEnderecoTela';
 import { useAuth } from '../context/AuthContext';
 
 type Props = {
@@ -50,12 +49,11 @@ type RideEstimate = {
 
 export default function HomeScreen({ onRideActive }: Props) {
   const { user } = useAuth();
-  const alturaTeclado = useAlturaTeclado();
-  // O teclado cobre tambem a barra de abas: so a parte que sobra por cima da tela precisa de folga.
-  const alturaAbas = useBottomTabBarHeight();
   const { height: alturaTela } = useWindowDimensions();
   // Mapa movel: comeca recolhido; ao escolher o destino expande; o passageiro pode alternar pela alca.
   const [mapaManual, setMapaManual] = useState<boolean | null>(null);
+  // A busca de endereco abre numa tela propria (o teclado nao mexe no tamanho da tela do mapa).
+  const [busca, setBusca] = useState<null | 'origem' | 'destino'>(null);
   const [region, setRegion] = useState(() => regiaoPadrao());
   const [pickupPoint, setPickupPoint] = useState<{ latitude: number; longitude: number } | null>(
     null,
@@ -107,9 +105,8 @@ export default function HomeScreen({ onRideActive }: Props) {
     longitude: region.longitude,
   };
 
-  const tecladoAberto = alturaTeclado > 0;
-  const mapaExpandido = tecladoAberto ? false : (mapaManual ?? Boolean(destinationPoint));
-  const alturaAlvoMapa = Math.round(alturaTela * (tecladoAberto ? 0.1 : mapaExpandido ? 0.34 : 0.17));
+  const mapaExpandido = mapaManual ?? Boolean(destinationPoint);
+  const alturaAlvoMapa = Math.round(alturaTela * (mapaExpandido ? 0.36 : 0.2));
   const alturaMapa = useRef(new Animated.Value(alturaAlvoMapa)).current;
   useEffect(() => {
     Animated.timing(alturaMapa, { toValue: alturaAlvoMapa, duration: 220, useNativeDriver: false }).start();
@@ -600,7 +597,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   return (
-    <View style={[styles.container, alturaTeclado > 0 ? { paddingBottom: Math.max(0, alturaTeclado - alturaAbas) } : null]}>
+    <View style={styles.container}>
       <Animated.View style={[styles.mapWrap, { height: alturaMapa }]}>
         <AppMap
           style={styles.map}
@@ -626,12 +623,10 @@ export default function HomeScreen({ onRideActive }: Props) {
         </AppMap>
         <MapLocateButton onPress={centerOnUser} loading={locating} />
       </Animated.View>
-      {tecladoAberto ? null : (
-        <Pressable style={styles.alca} onPress={() => setMapaManual(!mapaExpandido)} hitSlop={6}>
-          <View style={styles.alcaBarra} />
-          <Text style={styles.alcaTexto}>{mapaExpandido ? 'Recolher mapa' : 'Expandir mapa'}</Text>
-        </Pressable>
-      )}
+      <Pressable style={styles.alca} onPress={() => setMapaManual(!mapaExpandido)} hitSlop={6}>
+        <View style={styles.alcaBarra} />
+        <Text style={styles.alcaTexto}>{mapaExpandido ? 'Recolher mapa' : 'Expandir mapa'}</Text>
+      </Pressable>
 
       {areaError ? (
         <View style={styles.areaErrorBanner}>
@@ -659,7 +654,7 @@ export default function HomeScreen({ onRideActive }: Props) {
         contentContainerStyle={styles.sheet}
         keyboardShouldPersistTaps="handled"
       >
-        {operatingCities.length > 0 && !tecladoAberto && !destinationPoint ? (
+        {operatingCities.length > 0 && !destinationPoint ? (
           <View style={styles.cityPicker}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {operatingCities.map((item) => {
@@ -679,7 +674,7 @@ export default function HomeScreen({ onRideActive }: Props) {
             </ScrollView>
           </View>
         ) : null}
-        {city && !tecladoAberto && !destinationPoint ? (
+        {city && !destinationPoint ? (
           <Text style={styles.cityHint}>
             Área de {city.name} · até {maxRadiusKm} km
           </Text>
@@ -690,43 +685,18 @@ export default function HomeScreen({ onRideActive }: Props) {
             <Text style={styles.routeBadgeText}>De</Text>
           </View>
           <View style={styles.routeInputWrap}>
-            <TextInput
-              style={styles.routeInput}
-              placeholder="Digite outro endereço de embarque"
-              placeholderTextColor={theme.textMuted}
-              value={originEditing ? originText : (pickupLabel ?? (followGps ? 'Minha localização' : 'Ponto escolhido no mapa'))}
-              onFocus={() => {
-                setOriginEditing(true);
-                setOriginText('');
-              }}
-              onBlur={() => setTimeout(() => setOriginEditing(false), 200)}
-              onChangeText={(text) => {
-                if (Date.now() - escolhaRecenteRef.current < 1500) return;
-                setOriginText(text);
-              }}
-            />
+            <Pressable style={styles.routeFake} onPress={() => setBusca('origem')}>
+              <Text style={styles.routeFakeText} numberOfLines={1}>
+                {pickupLabel ?? (followGps ? 'Minha localização' : 'Ponto escolhido no mapa')}
+              </Text>
+            </Pressable>
             <Pressable style={styles.clearBtn} onPress={() => void centerOnUser()} hitSlop={6}>
               <Text style={styles.clearBtnText}>◎</Text>
             </Pressable>
           </View>
         </View>
-        {followGps && !originEditing ? (
+        {followGps ? (
           <Text style={styles.gpsHint}>● Usando sua localização atual · toque no endereço para digitar outro</Text>
-        ) : null}
-        {originSuggestions.length > 0 ? (
-          <View style={styles.suggestions}>
-            {originSuggestions.map((item) => (
-              <Pressable
-                key={`o-${item.latitude}-${item.longitude}`}
-                style={styles.suggestionItem}
-                onPress={() => void selectOrigin(item)}
-              >
-                <Text style={styles.suggestionText} numberOfLines={2}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
         ) : null}
 
         <View style={styles.routeRow}>
@@ -734,22 +704,11 @@ export default function HomeScreen({ onRideActive }: Props) {
             <Text style={styles.routeBadgeText}>Para</Text>
           </View>
           <View style={styles.routeInputWrap}>
-            <TextInput
-              style={styles.routeInput}
-              placeholder="Buscar endereço"
-              placeholderTextColor={theme.textMuted}
-              value={destination}
-              onChangeText={(text) => {
-                if (Date.now() - escolhaRecenteRef.current < 1500) return;
-                setDestination(text);
-                if (destinationPoint && text !== destinationPoint.label) {
-                  setDestinationPoint(null);
-                  setPickupPoint(null);
-                  setPickupLabel(null);
-                  setFareEstimate(null);
-                }
-              }}
-            />
+            <Pressable style={styles.routeFake} onPress={() => setBusca('destino')}>
+              <Text style={[styles.routeFakeText, !destination && { color: theme.textMuted }]} numberOfLines={1}>
+                {destination || 'Para onde? (rua, hospital, mercado...)'}
+              </Text>
+            </Pressable>
             {destinationPoint ? (
               <Pressable style={styles.clearBtn} onPress={clearDestination}>
                 <Text style={styles.clearBtnText}>✕</Text>
@@ -757,23 +716,6 @@ export default function HomeScreen({ onRideActive }: Props) {
             ) : null}
           </View>
         </View>
-        {searching ? <ActivityIndicator color={theme.ink} style={{ marginBottom: 8 }} /> : null}
-        {geocodeError ? <Text style={styles.inlineError}>{geocodeError}</Text> : null}
-        {suggestions.length > 0 ? (
-          <View style={styles.suggestions}>
-            {suggestions.map((item) => (
-              <Pressable
-                key={`${item.latitude}-${item.longitude}`}
-                style={styles.suggestionItem}
-                onPress={() => selectDestination(item)}
-              >
-                <Text style={styles.suggestionText} numberOfLines={2}>
-                  {item.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
         {estimating ? (
           <ActivityIndicator color={theme.mint} style={{ marginBottom: 8 }} />
         ) : null}
@@ -792,6 +734,22 @@ export default function HomeScreen({ onRideActive }: Props) {
           </View>
         ) : null}
       </ScrollView>
+      {busca ? (
+        <BuscaEnderecoTela
+          titulo={busca === 'origem' ? 'Onde você está?' : 'Para onde?'}
+          placeholder={busca === 'origem' ? 'Digite o endereço de embarque' : 'Rua, hospital, mercado, farmácia...'}
+          near={activePickup}
+          cityId={city?.id}
+          onClose={() => setBusca(null)}
+          onUseGps={busca === 'origem' ? () => { setBusca(null); void centerOnUser(); } : undefined}
+          onSelect={(item) => {
+            const qual = busca;
+            setBusca(null);
+            if (qual === 'origem') void selectOrigin(item);
+            else void selectDestination(item);
+          }}
+        />
+      ) : null}
       <View style={styles.footer}>
         <Pressable style={styles.button} onPress={requestRide} disabled={loading || Boolean(areaError)}>
           {loading ? (
@@ -901,6 +859,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingRight: 4,
   },
+  routeFake: { flex: 1, paddingHorizontal: 12, paddingVertical: 14 },
+  routeFakeText: { fontSize: 13, color: theme.ink },
   routeInput: {
     flex: 1,
     fontSize: 13,
