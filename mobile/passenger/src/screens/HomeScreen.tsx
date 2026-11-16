@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Keyboard,
   Linking,
   Platform,
@@ -10,6 +11,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { api } from '../../../shared/api';
@@ -32,6 +34,7 @@ import { AppMap, AppMarker, AppNearbyCars, AppRoute, type NearbyCar } from '../.
 import { theme } from '../../../shared/theme';
 import { useAlturaTeclado } from '../../../shared/TelaSegura';
 import type { City, Ride } from '../../../shared/types';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
 
 type Props = {
@@ -48,6 +51,11 @@ type RideEstimate = {
 export default function HomeScreen({ onRideActive }: Props) {
   const { user } = useAuth();
   const alturaTeclado = useAlturaTeclado();
+  // O teclado cobre tambem a barra de abas: so a parte que sobra por cima da tela precisa de folga.
+  const alturaAbas = useBottomTabBarHeight();
+  const { height: alturaTela } = useWindowDimensions();
+  // Mapa movel: comeca recolhido; ao escolher o destino expande; o passageiro pode alternar pela alca.
+  const [mapaManual, setMapaManual] = useState<boolean | null>(null);
   const [region, setRegion] = useState(() => regiaoPadrao());
   const [pickupPoint, setPickupPoint] = useState<{ latitude: number; longitude: number } | null>(
     null,
@@ -84,6 +92,9 @@ export default function HomeScreen({ onRideActive }: Props) {
   const [originText, setOriginText] = useState('');
   const [originSuggestions, setOriginSuggestions] = useState<GeocodeResult[]>([]);
   const originTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // O teclado devolve o texto digitado ao fechar; sem isso ele apagava o endereco recem escolhido.
+  const escolhaRecenteRef = useRef(0);
+  const regionRef = useRef<{ latitude: number; longitude: number; latitudeDelta?: number; longitudeDelta?: number } | null>(null);
   const setFollow = (value: boolean) => {
     followRef.current = value;
     setFollowGpsState(value);
@@ -95,6 +106,14 @@ export default function HomeScreen({ onRideActive }: Props) {
     latitude: region.latitude,
     longitude: region.longitude,
   };
+
+  const tecladoAberto = alturaTeclado > 0;
+  const mapaExpandido = tecladoAberto ? false : (mapaManual ?? Boolean(destinationPoint));
+  const alturaAlvoMapa = Math.round(alturaTela * (tecladoAberto ? 0.1 : mapaExpandido ? 0.34 : 0.17));
+  const alturaMapa = useRef(new Animated.Value(alturaAlvoMapa)).current;
+  useEffect(() => {
+    Animated.timing(alturaMapa, { toValue: alturaAlvoMapa, duration: 220, useNativeDriver: false }).start();
+  }, [alturaAlvoMapa]);
 
   const routePoints = useMemo(() => {
     if (fareEstimate?.routePoints.length) return fareEstimate.routePoints;
@@ -149,6 +168,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   const selectOperatingCity = async (selected: City) => {
+    setFollow(false);
     setCityLocked(true);
     setAreaError(null);
     setPickupAreaHint(null);
@@ -246,6 +266,15 @@ export default function HomeScreen({ onRideActive }: Props) {
     latitudeDelta?: number;
     longitudeDelta?: number;
   }) => {
+    const atual = regionRef.current;
+    if (
+      atual &&
+      distanciaMetros(next, atual) < 15 &&
+      Math.abs((next.latitudeDelta ?? 0) - (atual.latitudeDelta ?? 0)) < 0.002
+    ) {
+      return;
+    }
+    regionRef.current = next;
     setRegion(next);
     if (destinationPoint) return;
 
@@ -439,7 +468,7 @@ export default function HomeScreen({ onRideActive }: Props) {
     return () => {
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
-  }, [destination, activePickup.latitude, activePickup.longitude, destinationPoint?.label, city?.id]);
+  }, [destination, pickupLat, pickupLng, destinationPoint?.label, city?.id]);
 
   useEffect(() => {
     if (!city || !destinationPoint) {
@@ -491,6 +520,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   }, [city, destinationPoint, pickupPoint, activePickup.latitude, activePickup.longitude]);
 
   const selectOrigin = async (item: GeocodeResult) => {
+    escolhaRecenteRef.current = Date.now();
     Keyboard.dismiss();
     const ponto = { latitude: item.latitude, longitude: item.longitude };
     originCustomRef.current = true;
@@ -505,7 +535,9 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   const selectDestination = async (item: GeocodeResult) => {
+    escolhaRecenteRef.current = Date.now();
     Keyboard.dismiss();
+    setMapaManual(null);
     const frozenPickup = {
       latitude: activePickup.latitude,
       longitude: activePickup.longitude,
@@ -520,6 +552,7 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   const clearDestination = () => {
+    setMapaManual(null);
     setDestination('');
     setDestinationPoint(null);
     setPickupPoint(null);
@@ -567,8 +600,8 @@ export default function HomeScreen({ onRideActive }: Props) {
   };
 
   return (
-    <View style={[styles.container, alturaTeclado > 0 ? { paddingBottom: alturaTeclado } : null]}>
-      <View style={styles.mapWrap}>
+    <View style={[styles.container, alturaTeclado > 0 ? { paddingBottom: Math.max(0, alturaTeclado - alturaAbas) } : null]}>
+      <Animated.View style={[styles.mapWrap, { height: alturaMapa }]}>
         <AppMap
           style={styles.map}
           region={mapRegion}
@@ -592,7 +625,13 @@ export default function HomeScreen({ onRideActive }: Props) {
           ) : null}
         </AppMap>
         <MapLocateButton onPress={centerOnUser} loading={locating} />
-      </View>
+      </Animated.View>
+      {tecladoAberto ? null : (
+        <Pressable style={styles.alca} onPress={() => setMapaManual(!mapaExpandido)} hitSlop={6}>
+          <View style={styles.alcaBarra} />
+          <Text style={styles.alcaTexto}>{mapaExpandido ? 'Recolher mapa' : 'Expandir mapa'}</Text>
+        </Pressable>
+      )}
 
       {areaError ? (
         <View style={styles.areaErrorBanner}>
@@ -620,7 +659,7 @@ export default function HomeScreen({ onRideActive }: Props) {
         contentContainerStyle={styles.sheet}
         keyboardShouldPersistTaps="handled"
       >
-        {operatingCities.length > 0 ? (
+        {operatingCities.length > 0 && !tecladoAberto && !destinationPoint ? (
           <View style={styles.cityPicker}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {operatingCities.map((item) => {
@@ -640,7 +679,7 @@ export default function HomeScreen({ onRideActive }: Props) {
             </ScrollView>
           </View>
         ) : null}
-        {city ? (
+        {city && !tecladoAberto && !destinationPoint ? (
           <Text style={styles.cityHint}>
             Área de {city.name} · até {maxRadiusKm} km
           </Text>
@@ -661,7 +700,10 @@ export default function HomeScreen({ onRideActive }: Props) {
                 setOriginText('');
               }}
               onBlur={() => setTimeout(() => setOriginEditing(false), 200)}
-              onChangeText={setOriginText}
+              onChangeText={(text) => {
+                if (Date.now() - escolhaRecenteRef.current < 1500) return;
+                setOriginText(text);
+              }}
             />
             <Pressable style={styles.clearBtn} onPress={() => void centerOnUser()} hitSlop={6}>
               <Text style={styles.clearBtnText}>◎</Text>
@@ -698,6 +740,7 @@ export default function HomeScreen({ onRideActive }: Props) {
               placeholderTextColor={theme.textMuted}
               value={destination}
               onChangeText={(text) => {
+                if (Date.now() - escolhaRecenteRef.current < 1500) return;
                 setDestination(text);
                 if (destinationPoint && text !== destinationPoint.label) {
                   setDestinationPoint(null);
@@ -763,8 +806,11 @@ export default function HomeScreen({ onRideActive }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.bg, minHeight: '100%' as unknown as number },
-  mapWrap: { flex: 1, minHeight: 200, maxHeight: '50%' as unknown as number, position: 'relative' },
+  container: { flex: 1, backgroundColor: theme.bg },
+  mapWrap: { position: 'relative', overflow: 'hidden' },
+  alca: { alignItems: 'center', paddingVertical: 6, backgroundColor: theme.paper },
+  alcaBarra: { width: 38, height: 4, borderRadius: 2, backgroundColor: theme.line, marginBottom: 3 },
+  alcaTexto: { fontSize: 11, color: theme.textSecondary, fontWeight: '600' },
   map: { flex: 1, minHeight: 240 },
   locationBanner: {
     backgroundColor: '#FEF3C7',
@@ -788,9 +834,7 @@ const styles = StyleSheet.create({
   },
   areaErrorText: { color: '#991B1B', fontSize: 12, fontWeight: '600', lineHeight: 16 },
   sheetScroll: {
-    flexGrow: 0,
-    flexShrink: 1,
-    maxHeight: '42%' as unknown as number,
+    flex: 1,
   },
   sheet: {
     backgroundColor: theme.paper,
