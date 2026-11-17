@@ -16,9 +16,15 @@ type Props = {
   title?: string;
   pinMode?: 'center' | 'marker';
   fitToCoordinates?: AnyLatLng[];
+  /** Camera de navegacao: centraliza no ponto, gira pelo rumo e ajusta o zoom. */
+  follow?: { center: AnyLatLng; heading?: number | null; zoom: number } | null;
+  /** So acompanha enquanto true; ao voltar a true, volta a seguir. */
+  followActive?: boolean;
+  /** Chamado quando a pessoa arrasta o mapa com a mao. */
+  onUserMoved?: () => void;
 };
 
-export function AppMap({ pinMode = 'marker', fitToCoordinates, children, ...props }: Props) {
+export function AppMap({ pinMode = 'marker', fitToCoordinates, follow, followActive = true, onUserMoved, children, ...props }: Props) {
   const useGoogleStyle = Platform.OS === 'android';
   const mapRef = useRef<MapView | null>(null);
   const userMovedRef = useRef(false);
@@ -30,14 +36,34 @@ export function AppMap({ pinMode = 'marker', fitToCoordinates, children, ...prop
 
   // Reenquadra apenas enquanto o usuário não tiver mexido no mapa, para não
   // desfazer o zoom dele a cada atualização de posição.
+  // Modo navegacao: a camera segue o motorista com zoom pela distancia.
+  const seguirLat = follow ? Number(follow.center.latitude) : null;
+  const seguirLng = follow ? Number(follow.center.longitude) : null;
   useEffect(() => {
-    if (fitPoints.length < 2 || userMovedRef.current) return;
+    if (followActive) userMovedRef.current = false;
+  }, [followActive]);
+  useEffect(() => {
+    if (!follow || !followActive || userMovedRef.current) return;
+    if (seguirLat == null || seguirLng == null || !Number.isFinite(seguirLat) || !Number.isFinite(seguirLng)) return;
+    mapRef.current?.animateCamera(
+      {
+        center: { latitude: seguirLat, longitude: seguirLng },
+        zoom: follow.zoom,
+        heading: follow.heading ?? 0,
+        pitch: 0,
+      },
+      { duration: 900 },
+    );
+  }, [seguirLat, seguirLng, follow?.zoom, follow?.heading, followActive]);
+
+  useEffect(() => {
+    if (follow || fitPoints.length < 2 || userMovedRef.current) return;
 
     mapRef.current?.fitToCoordinates(fitPoints, {
       edgePadding: { top: 80, right: 60, bottom: 60, left: 60 },
       animated: true,
     });
-  }, [fitSignature]);
+  }, [fitSignature, followActive]);
 
   return (
     <MapView
@@ -50,6 +76,7 @@ export function AppMap({ pinMode = 'marker', fitToCoordinates, children, ...prop
       showsCompass={false}
       toolbarEnabled={false}
       onPanDrag={() => {
+        if (!userMovedRef.current) onUserMoved?.();
         userMovedRef.current = true;
       }}
       {...props}

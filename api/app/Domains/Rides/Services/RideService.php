@@ -159,6 +159,13 @@ class RideService
             ];
         }
 
+        // Preco fechado (como no Uber): o passageiro paga o valor que viu antes de pedir a corrida.
+        // So recalcula pelo trajeto real quando a corrida nao tem estimativa.
+        $estimado = (float) ($ride->estimated_fare ?? 0);
+        if ($estimado > 0) {
+            $final['final_fare'] = $estimado;
+        }
+
         $split = $this->commissionCalculator->split($final['final_fare'], $ride->tenant);
 
         $this->transition($ride, 'awaiting_payment', [

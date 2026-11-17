@@ -71,7 +71,9 @@ export type Ride = {
   city?: { id: string; name: string };
   driver_location?: { latitude: ApiNumber; longitude: ApiNumber };
   driver_distance_km?: ApiNumber;
-  driver_eta_min?: ApiNumber;
+  driver_eta_min?: ApiNumber | null;
+  trip_duration_min?: ApiNumber | null;
+  route_phase?: string;
   route_coordinates?: Array<{ latitude: ApiNumber; longitude: ApiNumber }>;
 };
 

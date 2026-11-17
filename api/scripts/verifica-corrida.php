@@ -110,6 +110,8 @@ try {
             $check("motorista: $acao (corrida fica '$st')", $s === 200 && ($esperado === null ? in_array($st, ['completed', 'awaiting_payment'], true) : $st === $esperado), "status=$s ".substr($raw, 0, 200));
             if ($s !== 200) { break; }
         }
+        $rFim = Ride::query()->withoutGlobalScopes()->find($ride->id);
+        $check('valor cobrado e o mesmo da estimativa (preco fechado)', (float) $rFim->estimated_fare > 0 && abs((float) $rFim->final_fare - (float) $rFim->estimated_fare) < 0.01, 'estimado='.$rFim->estimated_fare.' cobrado='.$rFim->final_fare);
         [$s, $j] = $api('GET', '/rides', [], $tokP);
         $check('passageiro ve a corrida no historico', $s === 200 && collect($j['data'] ?? $j)->pluck('id')->contains($ride->id));
         [$s] = $api('GET', '/rides/'.$ride->id, [], $tokP);

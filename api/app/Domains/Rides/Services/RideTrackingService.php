@@ -182,6 +182,8 @@ class RideTrackingService
         if (in_array($ride->status, ['driver_arrived', 'awaiting_payment'], true)) {
             $tracking['driver_distance_km'] = null;
             $tracking['driver_eta_min'] = null;
+            // Duracao estimada da viagem inteira (embarque -> destino), para o app mostrar "viagem de X min".
+            $tracking['trip_duration_min'] = isset($route['duration_min']) ? max(1, (int) $route['duration_min']) : null;
         } else {
             $tracking['driver_distance_km'] = $route['distance_km'] ?? null;
             $eta = $route['duration_min'] ?? null;
