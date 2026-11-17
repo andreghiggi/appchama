@@ -7,7 +7,7 @@ import { theme } from './theme';
 import type { Ride } from './types';
 
 type Props = {
-  /** 'driver' mostra o ganho líquido e o nome do passageiro; 'passenger' mostra o valor e o motorista. */
+  /** 'driver' mostra o valor da corrida e o nome do passageiro; 'passenger' mostra o valor e o motorista. */
   papel: 'driver' | 'passenger';
   vazio?: string;
 };
@@ -30,7 +30,7 @@ function corDoStatus(status: string): { fundo: string; texto: string } {
 }
 
 function valorDaCorrida(r: Ride, papel: 'driver' | 'passenger'): number {
-  if (papel === 'driver') return Number(r.driver_net_amount ?? r.final_fare ?? r.estimated_fare ?? 0);
+  if (papel === 'driver') return Number(r.final_fare ?? r.estimated_fare ?? 0);
   return Number(r.final_fare ?? r.estimated_fare ?? 0);
 }
 

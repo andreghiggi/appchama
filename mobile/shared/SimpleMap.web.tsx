@@ -22,6 +22,9 @@ type Props = {
   title?: string;
   pinMode?: 'center' | 'marker';
   fitToCoordinates?: AnyLatLng[];
+  follow?: { center: AnyLatLng; heading?: number | null; zoom: number } | null;
+  followActive?: boolean;
+  onUserMoved?: () => void;
 };
 
 const MapContext = createContext<mapboxgl.Map | null>(null);

@@ -9,6 +9,8 @@ import {
 import { api } from '../../../shared/api';
 import { toLatLng, toNumber } from '../../../shared/coords';
 import { formatBrl } from '../../../shared/fare';
+import NavBanner from '../../../shared/NavBanner';
+import { mensagemPassageiro } from '../../../shared/navegacao';
 import { AppMap, AppMarker, AppRoute } from '../../../shared/SimpleMap';
 import { theme } from '../../../shared/theme';
 import type { Ride } from '../../../shared/types';
@@ -23,6 +25,7 @@ type Props = {
 export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwaitingPayment }: Props) {
   const [ride, setRide] = useState(initial);
   const [loading, setLoading] = useState(false);
+  const [seguindo, setSeguindo] = useState(true);
 
   const onCompletedRef = useRef(onCompleted);
   onCompletedRef.current = onCompleted;
@@ -88,16 +91,14 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
       ? toLatLng({ latitude: ride.driver.current_lat, longitude: ride.driver.current_lng })
       : null);
 
+  // Mapa aproximado: mostra o carro e o proximo ponto (embarque; depois destino), nao a cidade inteira.
   const fitCoords = useMemo(() => {
-    const coords = [
-      { latitude: lat, longitude: lng },
-      { latitude: destLat, longitude: destLng },
-    ];
-    if (driverLoc) {
-      coords.push(driverLoc);
-    }
-    return coords;
-  }, [lat, lng, destLat, destLng, driverLoc]);
+    const origem = { latitude: lat, longitude: lng };
+    const destino = { latitude: destLat, longitude: destLng };
+    if (ride.status === 'in_progress') return driverLoc ? [driverLoc, destino] : [origem, destino];
+    if (ride.status === 'accepted' || ride.status === 'driver_arrived') return driverLoc ? [driverLoc, origem] : [];
+    return [];
+  }, [lat, lng, destLat, destLng, driverLoc, ride.status]);
 
   const routeCoords =
     ride.route_coordinates && ride.route_coordinates.length >= 2
@@ -137,27 +138,49 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
         <AppMap
           style={styles.map}
           region={{
-            latitude: (lat + destLat) / 2,
-            longitude: (lng + destLng) / 2,
-            latitudeDelta: 0.06,
-            longitudeDelta: 0.06,
+            latitude: lat,
+            longitude: lng,
+            latitudeDelta: 0.012,
+            longitudeDelta: 0.012,
           }}
           fitToCoordinates={fitCoords}
+          followActive={seguindo}
+          onUserMoved={() => setSeguindo(false)}
           pinMode="marker"
         >
-          <AppMarker coordinate={{ latitude: lat, longitude: lng }} title="Embarque" variant="origin" />
-          <AppMarker
-            coordinate={{ latitude: destLat, longitude: destLng }}
-            title="Destino"
-            variant="destination"
-            etaMin={ride.status === 'in_progress' && ride.driver_eta_min != null ? Number(ride.driver_eta_min) : null}
-            label={ride.status === 'in_progress' ? 'Chegada' : undefined}
-          />
+          {ride.status === 'accepted' ? (
+            <AppMarker
+              coordinate={{ latitude: lat, longitude: lng }}
+              title="Embarque"
+              variant="destination"
+              etaMin={etaOk ? Math.max(1, Math.round(etaNum)) : null}
+              label="Chegada"
+            />
+          ) : ride.status === 'searching' || ride.status === 'driver_arrived' ? (
+            <AppMarker coordinate={{ latitude: lat, longitude: lng }} title="Embarque" variant="origin" />
+          ) : null}
+          {ride.status === 'driver_arrived' || ride.status === 'in_progress' ? (
+            <AppMarker
+              coordinate={{ latitude: destLat, longitude: destLng }}
+              title="Destino"
+              variant="destination"
+              etaMin={ride.status === 'in_progress' && etaOk ? Math.max(1, Math.round(etaNum)) : null}
+              label={ride.status === 'in_progress' ? 'Chegada' : undefined}
+            />
+          ) : null}
           {showDriverOnMap ? (
             <AppMarker coordinate={driverLoc!} title="Motorista" variant="driver" />
           ) : null}
           <AppRoute coordinates={routeCoords} />
         </AppMap>
+
+        <NavBanner mensagem={canceled || noDrivers ? null : mensagemPassageiro(ride)} />
+
+        {!seguindo ? (
+          <Pressable style={styles.recentralizar} onPress={() => setSeguindo(true)}>
+            <Text style={styles.recentralizarTexto}>Recentralizar</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.sheet}>
@@ -232,9 +255,10 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
           </View>
         ) : null}
 
-        <Text style={styles.fare}>
-          Estimativa: {formatBrl(Number(ride.estimated_fare ?? 0))}
-        </Text>
+        <View style={styles.fareRow}>
+          <Text style={styles.fareLabel}>Valor da corrida</Text>
+          <Text style={styles.fareValor}>{formatBrl(Number(ride.final_fare ?? ride.estimated_fare ?? 0))}</Text>
+        </View>
 
         {finished ? (
           <Pressable style={styles.retryBtn} onPress={onFinish}>
@@ -255,17 +279,23 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.bg,
-    minHeight: '100%' as unknown as number,
+  container: { flex: 1, backgroundColor: theme.bg },
+  mapWrap: { flex: 1, position: 'relative' },
+  map: { flex: 1 },
+  recentralizar: {
+    position: 'absolute',
+    right: 12,
+    bottom: 16,
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    elevation: 6,
   },
-  mapWrap: {
-    flex: 1,
-    minHeight: 320,
-    position: 'relative',
-  },
-  map: { flex: 1, minHeight: 320 },
+  recentralizarTexto: { fontWeight: '700', color: theme.ink, fontSize: 13 },
+  fareRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  fareLabel: { fontSize: 14, color: theme.textSecondary, fontWeight: '600' },
+  fareValor: { fontSize: 20, fontWeight: '800', color: theme.ink },
   sheet: {
     backgroundColor: theme.paper,
     borderTopLeftRadius: 22,

@@ -79,7 +79,7 @@ export default function OfferScreen({ ride, expiresIn, onAccepted, onDismiss }: 
         <Text style={styles.detail}>Embarque: {ride.origin_address ?? 'Próximo a você'}</Text>
         <Text style={styles.detail}>Destino: {ride.destination_address}</Text>
         <Text style={styles.detail}>
-          Valor estimado: R$ {Number(ride.estimated_fare ?? 0).toFixed(2).replace('.', ',')}
+          Valor: R$ {Number(ride.estimated_fare ?? 0).toFixed(2).replace('.', ',')}
         </Text>
         <View style={styles.actions}>
           <Pressable style={styles.decline} onPress={decline}>
