@@ -3,7 +3,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, { AnimatedRegion, Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { toLatLng, toLatLngList } from './coords';
-import { bearingBetween } from './geo';
+import { bearingBetween, distanciaMetros } from './geo';
 import { GOOGLE_UBER_MAP_STYLE, MAP_ROUTE_COLOR, MAP_ROUTE_SHADOW, type MarkerVariant } from './mapStyle';
 
 type AnyLatLng = { latitude: number | string; longitude: number | string };
@@ -59,8 +59,20 @@ export function AppMap({ pinMode = 'marker', fitToCoordinates, follow, followAct
   useEffect(() => {
     if (follow || fitPoints.length < 2 || userMovedRef.current) return;
 
+    // Pontos muito proximos (carro ja no embarque): nao aproxima demais, para o mapa continuar mostrando as ruas.
+    let maior = 0;
+    for (let i = 1; i < fitPoints.length; i++) maior = Math.max(maior, distanciaMetros(fitPoints[0], fitPoints[i]));
+    if (maior < 220) {
+      const meio = {
+        latitude: fitPoints.reduce((a, p) => a + p.latitude, 0) / fitPoints.length,
+        longitude: fitPoints.reduce((a, p) => a + p.longitude, 0) / fitPoints.length,
+      };
+      mapRef.current?.animateCamera({ center: meio, zoom: 17, heading: 0, pitch: 0 }, { duration: 700 });
+      return;
+    }
+
     mapRef.current?.fitToCoordinates(fitPoints, {
-      edgePadding: { top: 80, right: 60, bottom: 60, left: 60 },
+      edgePadding: { top: 170, right: 60, bottom: 70, left: 60 },
       animated: true,
     });
   }, [fitSignature, followActive]);
