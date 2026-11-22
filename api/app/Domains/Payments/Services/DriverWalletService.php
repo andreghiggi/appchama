@@ -139,7 +139,12 @@ class DriverWalletService
     {
         $wallet = $this->ensureWallet($driver);
         $fee = round(max(0, $grossFare) * max(0, min(100, $commissionPct)) / 100, 2);
-        abort_unless((float) $wallet->prepaid_balance >= $fee, 422, 'Saldo da carteira insuficiente para a comissão desta corrida. Recarregue no mínimo R$ 20,00.');
+        $saldo = (float) $wallet->prepaid_balance;
+        abort_unless($saldo >= $fee, 422, sprintf(
+            'Saldo da carteira insuficiente para a comissão desta corrida (comissão R$ %s, seu saldo R$ %s). Recarregue na aba Carteira (mínimo R$ 20,00) ou peça crédito ao suporte.',
+            number_format($fee, 2, ',', '.'),
+            number_format($saldo, 2, ',', '.'),
+        ));
     }
 
     public function debitCommissionForRide(Ride $ride): DriverWallet
@@ -181,6 +186,33 @@ class DriverWalletService
                 'balance_after' => $wallet->balance_available, 'prepaid_balance_after' => $wallet->prepaid_balance,
                 'description' => 'Recarga carteira #'.substr($rechargeId, 0, 8), 'created_at' => now(),
             ]);
+            return $wallet->fresh();
+        });
+    }
+
+    /**
+     * Credito manual de comissao feito pelo painel admin (ajuda nos testes e acertos): soma ao saldo da carteira de comissao
+     * e deixa o motivo e quem fez no extrato do motorista.
+     */
+    public function creditManual(string $driverId, float $amount, ?string $motivo, ?string $feitoPor): DriverWallet
+    {
+        abort_unless($amount > 0 && $amount <= 5000, 422, 'Informe um valor entre R$ 0,01 e R$ 5.000,00.');
+
+        return DB::transaction(function () use ($driverId, $amount, $motivo, $feitoPor): DriverWallet {
+            // o admin pode estar vendo outra marca no painel: busca e cria sempre na marca do proprio motorista
+            $tenantId = Driver::withoutGlobalScopes()->where('user_id', $driverId)->value('tenant_id');
+            abort_unless($tenantId, 404, 'Motorista não encontrado.');
+            $wallet = DriverWallet::withoutGlobalScopes()->lockForUpdate()->where('driver_id', $driverId)->first()
+                ?? DriverWallet::withoutGlobalScopes()->forceCreate(['driver_id' => $driverId, 'tenant_id' => $tenantId, 'balance_available' => 0, 'prepaid_balance' => 0, 'total_earnings' => 0]);
+            $wallet->prepaid_balance = round((float) $wallet->prepaid_balance + $amount, 2);
+            $wallet->save();
+            DriverWalletTransaction::withoutGlobalScopes()->forceCreate([
+                'driver_id' => $driverId, 'tenant_id' => $tenantId, 'type' => 'manual_credit', 'amount' => round($amount, 2),
+                'balance_after' => $wallet->balance_available, 'prepaid_balance_after' => $wallet->prepaid_balance,
+                'description' => mb_substr('Crédito manual (admin'.($feitoPor ? ': '.$feitoPor : '').')'.($motivo ? ' - '.$motivo : ''), 0, 250),
+                'created_at' => now(),
+            ]);
+
             return $wallet->fresh();
         });
     }
