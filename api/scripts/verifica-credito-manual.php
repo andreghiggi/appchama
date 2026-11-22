@@ -2,7 +2,7 @@
 // Verifica o credito manual de comissao do painel admin (carteira do motorista). Tudo dentro de transacao, desfeito no fim.
 // Rodar: php artisan tinker scripts/verifica-credito-manual.php
 use App\Domains\Payments\Services\DriverWalletService;
-use App\Models\{Driver, DriverWallet, DriverWalletTransaction, Tenant};
+use App\Models\{Driver, DriverWallet, DriverWalletTransaction, Tenant, User};
 use Illuminate\Support\Facades\DB;
 
 DB::beginTransaction();
@@ -11,14 +11,15 @@ $check = function (string $nome, bool $cond, $extra = '') use (&$ok, &$falhas) {
     if ($cond) { $ok++; echo "  ok  $nome\n"; } else { $falhas[] = $nome; echo "  FALHOU  $nome ".(is_scalar($extra) ? $extra : json_encode($extra))."\n"; }
 };
 try {
-    $tenant = Tenant::query()->where('slug', 'vaide55')->firstOrFail();
-    $driver = Driver::withoutGlobalScopes()->where('tenant_id', $tenant->id)->firstOrFail();
+    // qualquer motorista existente serve (tudo e desfeito no fim); a marca de referencia passa a ser a dele
+    $driver = Driver::withoutGlobalScopes()->firstOrFail();
+    $tenant = Tenant::query()->findOrFail($driver->tenant_id);
     $id = (string) $driver->user_id;
     $svc = app(DriverWalletService::class);
     $antes = (float) (DriverWallet::withoutGlobalScopes()->where('driver_id', $id)->value('prepaid_balance') ?? 0);
 
     // simula o admin vendo OUTRA marca no painel: a carteira do motorista tem de ser achada mesmo assim
-    $outra = Tenant::query()->where('slug', '!=', 'vaide55')->first();
+    $outra = Tenant::query()->where('id', '!=', $tenant->id)->first();
     if ($outra) { app()->instance('currentTenantId', $outra->id); }
 
     $w = $svc->creditManual($id, 25.50, 'teste', 'Admin Teste');

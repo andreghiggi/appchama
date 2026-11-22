@@ -78,6 +78,7 @@ Rodam na cópia de desenvolvimento, dentro de transação (não deixam rastro). 
 | `verifica-paineis` | todas as telas do painel, isolamento, permissões e formulários |
 | `verifica-corrida` | corrida completa pela API (cadastro, login, pedido, aceite, fim) |
 | `verifica-textos-marca` | nenhum texto fixo "Chama" visível ao cliente final |
+| `verifica-credito-manual` | crédito manual do admin na carteira do motorista |
 
 ## 7. Pendências abertas (o que falta para publicar)
 1. **Preços reais** das cidades (hoje provisórios, copiados do demo): bandeirada R$ 12, R$ 0,90/km, R$ 0,50/min, mínima R$ 8. Editar em Cidades.

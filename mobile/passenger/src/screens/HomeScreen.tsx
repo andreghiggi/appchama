@@ -272,7 +272,7 @@ export default function HomeScreen({ onRideActive }: Props) {
       return;
     }
     regionRef.current = next;
-    setRegion(next);
+    setRegion((prev) => ({ ...next, latitudeDelta: next.latitudeDelta ?? prev.latitudeDelta, longitudeDelta: next.longitudeDelta ?? prev.longitudeDelta }));
     if (destinationPoint) return;
 
     // Mapa arrastado para longe: deixa de seguir o GPS e de usar o endereco digitado.
