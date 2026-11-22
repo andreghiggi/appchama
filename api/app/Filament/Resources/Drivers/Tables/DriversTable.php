@@ -3,12 +3,16 @@
 namespace App\Filament\Resources\Drivers\Tables;
 
 use App\Domains\Drivers\Services\DriverRegistrationCodeService;
+use App\Domains\Payments\Services\DriverWalletService;
+use App\Models\DriverWallet;
 use App\Support\StatusLabels;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
+use Illuminate\Support\Collection;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -17,6 +21,25 @@ use Filament\Tables\Table;
 
 class DriversTable
 {
+    /** @return array<int, \Filament\Schemas\Components\Component|\Filament\Forms\Components\Field> */
+    private static function creditForm(): array
+    {
+        return [
+            TextInput::make('amount')
+                ->label('Valor do crédito (R$)')
+                ->numeric()
+                ->minValue(0.01)
+                ->maxValue(5000)
+                ->default(20)
+                ->prefix('R$')
+                ->required(),
+            TextInput::make('motivo')
+                ->label('Motivo (opcional)')
+                ->placeholder('Ex.: crédito de teste')
+                ->maxLength(120),
+        ];
+    }
+
     public static function configure(Table $table): Table
     {
         return $table
@@ -53,6 +76,11 @@ class DriversTable
                     ->label('Mensalidade')
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => StatusLabels::subscription($state)),
+                TextColumn::make('saldo_comissao')
+                    ->label('Saldo p/ comissão')
+                    ->getStateUsing(fn ($record) => 'R$ '.number_format((float) (DriverWallet::withoutGlobalScopes()->where('driver_id', $record->user_id)->value('prepaid_balance') ?? 0), 2, ',', '.'))
+                    ->badge()
+                    ->color(fn ($record) => (float) (DriverWallet::withoutGlobalScopes()->where('driver_id', $record->user_id)->value('prepaid_balance') ?? 0) >= 20 ? 'success' : 'danger'),
                 IconColumn::make('online')->label('Online')->boolean(),
                 TextColumn::make('rating_avg')->label('Nota'),
             ])
@@ -125,6 +153,22 @@ class DriversTable
                         ]);
                         $record->user?->update(['status' => 'blocked']);
                     }),
+                Action::make('addCredit')
+                    ->label('Adicionar crédito')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('warning')
+                    ->modalHeading('Adicionar crédito na carteira de comissão')
+                    ->modalDescription('O motorista só aceita corridas se tiver saldo para a comissão. Este valor entra na hora e fica registrado no extrato dele.')
+                    ->schema(self::creditForm())
+                    ->action(function ($record, array $data): void {
+                        $carteira = app(DriverWalletService::class)->creditManual((string) $record->user_id, (float) $data['amount'], $data['motivo'] ?? null, auth()->user()?->name);
+
+                        Notification::make()
+                            ->title('Crédito adicionado')
+                            ->body(sprintf('%s agora tem R$ %s de saldo para comissão.', $record->user?->name, number_format((float) $carteira->prepaid_balance, 2, ',', '.')))
+                            ->success()
+                            ->send();
+                    }),
                 EditAction::make(),
             ])
             ->headerActions([
@@ -164,6 +208,24 @@ class DriversTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    BulkAction::make('addCreditBulk')
+                        ->label('Adicionar crédito aos selecionados')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('warning')
+                        ->schema(self::creditForm())
+                        ->deselectRecordsAfterCompletion()
+                        ->action(function (Collection $records, array $data): void {
+                            $servico = app(DriverWalletService::class);
+                            foreach ($records as $driver) {
+                                $servico->creditManual((string) $driver->user_id, (float) $data['amount'], $data['motivo'] ?? null, auth()->user()?->name);
+                            }
+
+                            Notification::make()
+                                ->title('Crédito adicionado')
+                                ->body(sprintf('R$ %s para cada um dos %d motoristas selecionados.', number_format((float) $data['amount'], 2, ',', '.'), $records->count()))
+                                ->success()
+                                ->send();
+                        }),
                     DeleteBulkAction::make(),
                 ]),
             ]);
