@@ -269,6 +269,8 @@ export const api = {
       }),
     }),
 
+  choosePaymentMethod: (id: string, method: 'direct_driver') =>
+    request<RidePaymentInfo>(`/rides/${id}/payment-method`, { method: 'POST', body: JSON.stringify({ method }) }),
   confirmDirectPayment: (id: string) =>
     request<Ride>(`/rides/${id}/confirm-direct-payment`, { method: 'POST' }),
 

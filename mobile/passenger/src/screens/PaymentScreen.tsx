@@ -31,6 +31,7 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pedirDadosCartao, setPedirDadosCartao] = useState(false);
+  const [escolhendoDireto, setEscolhendoDireto] = useState(false);
 
   const amount = Number(ride.final_fare ?? ride.estimated_fare ?? 0);
 
@@ -83,6 +84,25 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
     }
   };
 
+  const pagarAoMotorista = async () => {
+    setEscolhendoDireto(true);
+    setError(null);
+    try {
+      const r = await api.choosePaymentMethod(ride.id, 'direct_driver');
+      setInfo(r);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Não foi possível escolher esta forma de pagamento');
+    } finally {
+      setEscolhendoDireto(false);
+    }
+  };
+
+  const reabrirCartao = async () => {
+    if (!info?.checkout_url) return;
+    if (Platform.OS === 'web') window.open(info.checkout_url, '_blank');
+    else await Linking.openURL(info.checkout_url).catch(() => undefined);
+  };
+
   const copyPix = async () => {
     const code = info?.pix_copy_paste;
     if (!code) return;
@@ -96,6 +116,7 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
   };
 
   const methods = info?.methods_enabled ?? {};
+  const aguardandoMotorista = info?.payment_method === 'direct_driver';
   const profileComplete = info?.payment_profile_complete ?? user?.cpf != null;
   const cartaoCompleto = info?.card_profile_complete ?? profileComplete;
   const mostrarForm = user && (!profileComplete || (pedirDadosCartao && !cartaoCompleto));
@@ -127,15 +148,28 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
         <Text style={styles.amount}>{formatBrl(amount)}</Text>
       </View>
 
-      {methods.direct_driver ? (
-        <Text style={styles.directHint}>
-          Pagamento direto ao motorista: confirme com o motorista após pagar em dinheiro ou Pix
-          pessoal.
+      {info?.test_mode ? (
+        <Text style={styles.testeAviso}>
+          Pagamentos em modo de teste: o Pix e o cartão reais ainda não concluem. Para testar a corrida, use "Pagar ao motorista".
         </Text>
       ) : null}
 
+      {aguardandoMotorista ? (
+        <View style={styles.pixBox}>
+          <Text style={styles.pixTitle}>Pagamento direto ao motorista</Text>
+          <Text style={styles.waitHint}>
+            Pague o motorista em dinheiro ou Pix pessoal. A corrida termina quando ele confirmar que recebeu. Esta tela atualiza sozinha.
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.methods}>
-        {methods.pix ? (
+        {methods.direct_driver && !aguardandoMotorista ? (
+          <Pressable style={styles.methodBtn} onPress={pagarAoMotorista} disabled={escolhendoDireto || paying}>
+            <Text style={styles.methodBtnText}>Pagar ao motorista (dinheiro ou Pix pessoal)</Text>
+          </Pressable>
+        ) : null}
+        {!aguardandoMotorista && methods.pix ? (
           <Pressable
             style={[styles.methodBtn, !profileComplete && styles.methodBtnDisabled]}
             onPress={() => pay('pix')}
@@ -145,7 +179,7 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
           </Pressable>
         ) : null}
 
-        {methods.credit_card ? (
+        {!aguardandoMotorista && methods.credit_card ? (
           <Pressable
             style={[styles.methodBtn, !profileComplete && styles.methodBtnDisabled]}
             onPress={() => (cartaoCompleto ? pay('credit_card') : setPedirDadosCartao(true))}
@@ -175,10 +209,15 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
         </View>
       ) : null}
 
-      {info?.checkout_url && !info.pix_qr_code ? (
-        <Text style={styles.waitHint}>
-          Complete o pagamento na janela do cartão. Esta tela atualiza automaticamente.
-        </Text>
+      {info?.checkout_url && !info.pix_qr_code && !aguardandoMotorista ? (
+        <View style={{ alignItems: 'center' }}>
+          <Text style={styles.waitHint}>
+            Complete o pagamento na janela do cartão. Esta tela atualiza automaticamente.
+          </Text>
+          <Pressable style={styles.copyBtn} onPress={reabrirCartao}>
+            <Text style={styles.copyBtnText}>Abrir a janela do cartão de novo</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -199,6 +238,15 @@ const styles = StyleSheet.create({
   },
   amountLabel: { fontSize: 13, color: theme.textSecondary },
   amount: { fontSize: 32, fontWeight: '800', color: theme.mint, marginTop: 6 },
+  testeAviso: {
+    fontSize: 13,
+    color: '#92400E',
+    backgroundColor: '#FEF3C7',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 14,
+    lineHeight: 18,
+  },
   directHint: {
     fontSize: 13,
     color: theme.textSecondary,

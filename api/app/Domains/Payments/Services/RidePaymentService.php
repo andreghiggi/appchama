@@ -102,6 +102,8 @@ class RidePaymentService
             'methods_enabled' => $this->enabledMethods($tenant),
             'payment_methods' => $this->listPaymentMethods($tenant),
             'asaas_capabilities' => $asaasCapabilities,
+            // Asaas em modo de teste (sandbox): Pix e cartao reais nao concluem; o app avisa e oferece pagar direto ao motorista
+            'test_mode' => ($tenant->asaas_environment ?? '') === 'sandbox',
             'payment_profile_complete' => (bool) $ride->passenger?->hasPixProfile(),
             'card_profile_complete' => (bool) $ride->passenger?->hasPaymentProfile(),
             // so o que falta (o app nao pede de novo o que ja esta no cadastro)
@@ -178,6 +180,8 @@ class RidePaymentService
         $tenant = $this->tenantForRide($ride);
         abort_unless($this->enabledMethods($tenant)['direct_driver'] ?? false, 422, 'Pagamento direto não habilitado.');
 
+        // o que ficou pendente no Asaas (Pix/cartao nao pagos) deixa de valer: so o motorista confirma agora
+        $ride->payments()->where('status', 'pending')->where('method', '!=', 'direct_driver')->update(['status' => 'cancelled']);
         $ride->update(['payment_method' => 'direct_driver']);
 
         return $this->paymentStatus($ride->fresh());
