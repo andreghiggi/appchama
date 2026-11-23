@@ -20,14 +20,14 @@ try {
 
     // provider log: nao chama o fornecedor
     config(['services.sms.provider' => 'log']);
-    Http::fake();
+    Http::swap(new \Illuminate\Http\Client\Factory); Http::fake();
     $svc->send('51988887777', 'vaide55');
     Http::assertNothingSent();
     $check('com provider "log" nada e enviado e o codigo e gravado', OtpCode::query()->where('tenant_id', $tenant->id)->where('phone', '51988887777')->exists());
 
     // provider twilio: envia 1 SMS com o codigo, para o numero certo
     config(['services.sms.provider' => 'twilio']);
-    Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SM1'], 201)]);
+    Http::swap(new \Illuminate\Http\Client\Factory); Http::fake(['api.twilio.com/*' => Http::response(['sid' => 'SM1'], 201)]);
     $svc->send('51988887777', 'vaide55');
     $codigo = OtpCode::query()->where('tenant_id', $tenant->id)->where('phone', '51988887777')->latest()->value('code');
     $enviado = null;
@@ -36,13 +36,13 @@ try {
         && ($enviado['To'] ?? '') === '+5551988887777' && ($enviado['From'] ?? '') === '+15005550006' && str_contains((string) ($enviado['Body'] ?? ''), (string) $codigo), $enviado?->data());
 
     // conta de teste (codigo fixo): nao gasta SMS
-    Http::fake(['api.twilio.com/*' => Http::response([], 201)]);
+    Http::swap(new \Illuminate\Http\Client\Factory); Http::fake(['api.twilio.com/*' => Http::response([], 201)]);
     $svc->send('51900000001', 'vaide55');
     Http::assertNothingSent();
     $check('conta de teste com codigo fixo nao envia SMS', OtpCode::query()->where('phone', '51900000001')->value('code') === '500001');
 
     // fornecedor fora do ar: o codigo e apagado e a pessoa recebe aviso simples (503)
-    Http::fake(['api.twilio.com/*' => Http::response(['message' => 'erro'], 500)]);
+    Http::swap(new \Illuminate\Http\Client\Factory); Http::fake(['api.twilio.com/*' => Http::response(['message' => 'erro'], 500)]);
     $codigoAntes = OtpCode::query()->where('phone', '51977776666')->count();
     $erro = null;
     try { $svc->send('51977776666', 'vaide55'); } catch (\Throwable $e) { $erro = $e; }
