@@ -102,7 +102,13 @@ class RidePaymentService
             'methods_enabled' => $this->enabledMethods($tenant),
             'payment_methods' => $this->listPaymentMethods($tenant),
             'asaas_capabilities' => $asaasCapabilities,
-            'payment_profile_complete' => (bool) $ride->passenger?->hasPaymentProfile(),
+            'payment_profile_complete' => (bool) $ride->passenger?->hasPixProfile(),
+            'card_profile_complete' => (bool) $ride->passenger?->hasPaymentProfile(),
+            // so o que falta (o app nao pede de novo o que ja esta no cadastro)
+            'missing_fields' => [
+                'pix' => $ride->passenger?->missingPaymentFields('pix') ?? [],
+                'credit_card' => $ride->passenger?->missingPaymentFields('credit_card') ?? [],
+            ],
             'pix_qr_code' => null,
             'pix_copy_paste' => null,
             'checkout_url' => null,

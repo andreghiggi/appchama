@@ -73,13 +73,13 @@ export const api = {
 
   updateProfile: (payload: {
     name?: string;
-    cpf: string;
-    email: string;
-    home_address: string;
-    home_address_number: string;
-    home_postal_code: string;
-    home_city: string;
-    home_state: string;
+    cpf?: string;
+    email?: string;
+    home_address?: string;
+    home_address_number?: string;
+    home_postal_code?: string;
+    home_city?: string;
+    home_state?: string;
     home_lat?: number;
     home_lng?: number;
   }) =>

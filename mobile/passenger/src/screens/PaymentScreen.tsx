@@ -30,6 +30,7 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pedirDadosCartao, setPedirDadosCartao] = useState(false);
 
   const amount = Number(ride.final_fare ?? ride.estimated_fare ?? 0);
 
@@ -96,18 +97,27 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
 
   const methods = info?.methods_enabled ?? {};
   const profileComplete = info?.payment_profile_complete ?? user?.cpf != null;
+  const cartaoCompleto = info?.card_profile_complete ?? profileComplete;
+  const mostrarForm = user && (!profileComplete || (pedirDadosCartao && !cartaoCompleto));
+  const faltando = !profileComplete ? info?.missing_fields?.pix : info?.missing_fields?.credit_card;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Pagamento da corrida</Text>
       <Text style={styles.subtitle}>Finalize o pagamento para concluir a viagem</Text>
 
-      {!profileComplete && user ? (
+      {mostrarForm && user ? (
         <PaymentProfileForm
           user={user}
+          missing={faltando}
           onSaved={(updated) => {
             updateUser(updated);
             void loadPayment();
+            if (pedirDadosCartao) {
+              // já completou o que faltava: segue direto para o cartão, sem pedir para tocar de novo
+              setPedirDadosCartao(false);
+              void pay('credit_card');
+            }
           }}
         />
       ) : null}
@@ -138,7 +148,7 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
         {methods.credit_card ? (
           <Pressable
             style={[styles.methodBtn, !profileComplete && styles.methodBtnDisabled]}
-            onPress={() => pay('credit_card')}
+            onPress={() => (cartaoCompleto ? pay('credit_card') : setPedirDadosCartao(true))}
             disabled={paying || !profileComplete}
           >
             <Text style={styles.methodBtnText}>Pagar com cartão</Text>

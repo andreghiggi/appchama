@@ -99,6 +99,9 @@ export type RidePaymentInfo = {
   amount: number;
   driver_net_amount?: number | null;
   payment_profile_complete?: boolean;
+  card_profile_complete?: boolean;
+  /** O que ainda falta no cadastro do passageiro para cada forma de pagamento (so isso e pedido no app). */
+  missing_fields?: { pix?: string[]; credit_card?: string[] };
   methods_enabled: {
     pix?: boolean;
     credit_card?: boolean;

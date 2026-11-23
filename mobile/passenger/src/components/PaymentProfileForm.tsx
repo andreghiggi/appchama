@@ -13,6 +13,8 @@ import type { User } from '../../../shared/types';
 
 type Props = {
   user: User;
+  /** Campos que ainda faltam no cadastro; so eles aparecem. Vazio/ausente = todos. */
+  missing?: string[];
   onSaved: (user: User) => void;
 };
 
@@ -21,7 +23,8 @@ function onlyDigits(value: string, max?: number): string {
   return max ? digits.slice(0, max) : digits;
 }
 
-export default function PaymentProfileForm({ user, onSaved }: Props) {
+export default function PaymentProfileForm({ user, missing, onSaved }: Props) {
+  const falta = (campo: string) => !missing || missing.length === 0 || missing.includes(campo);
   const [name, setName] = useState(user.name ?? '');
   const [cpf, setCpf] = useState(user.cpf ?? '');
   const [email, setEmail] = useState(user.email ?? '');
@@ -37,22 +40,20 @@ export default function PaymentProfileForm({ user, onSaved }: Props) {
     setLoading(true);
     setError(null);
     try {
-      if (name.trim().split(/\s+/).filter(Boolean).length < 2) {
+      if (falta('name') && name.trim().split(/\s+/).filter(Boolean).length < 2) {
         setError('Informe nome e sobrenome.');
         setLoading(false);
         return;
       }
       const updated = await api.updateProfile({
-        name: name.trim(),
-        cpf: onlyDigits(cpf, 11),
-        email: email.trim(),
-        home_address: address.trim(),
-        home_address_number: number.trim(),
-        home_postal_code: onlyDigits(postalCode, 8),
-        home_city: city.trim(),
-        home_state: state.trim().toUpperCase(),
-        home_lat: user.home_lat != null ? Number(user.home_lat) : undefined,
-        home_lng: user.home_lng != null ? Number(user.home_lng) : undefined,
+        ...(falta('name') ? { name: name.trim() } : {}),
+        ...(falta('cpf') ? { cpf: onlyDigits(cpf, 11) } : {}),
+        ...(falta('email') ? { email: email.trim() } : {}),
+        ...(falta('home_address') ? { home_address: address.trim() } : {}),
+        ...(falta('home_address_number') ? { home_address_number: number.trim() } : {}),
+        ...(falta('home_postal_code') ? { home_postal_code: onlyDigits(postalCode, 8) } : {}),
+        ...(falta('home_city') ? { home_city: city.trim() } : {}),
+        ...(falta('home_state') ? { home_state: state.trim().toUpperCase() } : {}),
       });
       onSaved(updated);
     } catch (e: unknown) {
@@ -66,9 +67,10 @@ export default function PaymentProfileForm({ user, onSaved }: Props) {
     <View style={styles.box}>
       <Text style={styles.title}>Dados para pagamento</Text>
       <Text style={styles.subtitle}>
-        Informe nome completo, CPF, e-mail e endereço para pagar com Pix ou cartão.
+        {missing && missing.length ? 'Falta só isto no seu cadastro para pagar:' : 'Informe nome completo, CPF, e-mail e endereço para pagar com Pix ou cartão.'}
       </Text>
 
+{falta('name') ? (
       <TextInput
         style={styles.input}
         placeholder="Nome completo (nome e sobrenome)"
@@ -76,6 +78,8 @@ export default function PaymentProfileForm({ user, onSaved }: Props) {
         onChangeText={setName}
         autoCapitalize="words"
       />
+      ) : null}
+{falta('cpf') ? (
       <TextInput
         style={styles.input}
         placeholder="CPF (somente números)"
@@ -84,6 +88,8 @@ export default function PaymentProfileForm({ user, onSaved }: Props) {
         keyboardType="number-pad"
         maxLength={11}
       />
+      ) : null}
+{falta('email') ? (
       <TextInput
         style={styles.input}
         placeholder="E-mail"
@@ -92,18 +98,24 @@ export default function PaymentProfileForm({ user, onSaved }: Props) {
         keyboardType="email-address"
         autoCapitalize="none"
       />
+      ) : null}
+{falta('home_address') ? (
       <TextInput
         style={styles.input}
         placeholder="Endereço (rua/avenida)"
         value={address}
         onChangeText={setAddress}
       />
+      ) : null}
+{falta('home_address_number') ? (
       <TextInput
         style={styles.input}
         placeholder="Número"
         value={number}
         onChangeText={setNumber}
       />
+      ) : null}
+{falta('home_postal_code') ? (
       <TextInput
         style={styles.input}
         placeholder="CEP (somente números)"
@@ -112,6 +124,8 @@ export default function PaymentProfileForm({ user, onSaved }: Props) {
         keyboardType="number-pad"
         maxLength={8}
       />
+      ) : null}
+{falta('home_city') || falta('home_state') ? (
       <View style={styles.row}>
         <TextInput
           style={[styles.input, styles.flex]}
@@ -128,6 +142,7 @@ export default function PaymentProfileForm({ user, onSaved }: Props) {
           autoCapitalize="characters"
         />
       </View>
+      ) : null}
 
       <Pressable style={styles.button} onPress={save} disabled={loading}>
         {loading ? (
