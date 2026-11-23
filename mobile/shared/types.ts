@@ -99,6 +99,8 @@ export type RidePaymentInfo = {
   amount: number;
   driver_net_amount?: number | null;
   payment_profile_complete?: boolean;
+  /** Pagamentos do Asaas em modo de teste: Pix e cartao reais nao concluem. */
+  test_mode?: boolean;
   card_profile_complete?: boolean;
   /** O que ainda falta no cadastro do passageiro para cada forma de pagamento (so isso e pedido no app). */
   missing_fields?: { pix?: string[]; credit_card?: string[] };

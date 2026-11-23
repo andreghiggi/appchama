@@ -102,7 +102,10 @@ class RidePaymentReconcileService
     private function reconcileCheckoutPayment(RidePayment $payment, $ride, Tenant $tenant): bool
     {
         try {
-            $checkout = $this->asaasClient->get('/checkouts/'.$payment->asaas_checkout_id, $tenant);
+            // O Asaas nao tem consulta de checkout por codigo (dava 404): as cobrancas geradas por ele aparecem na lista de cobrancas.
+            $lista = $this->asaasClient->get('/payments?checkoutSession='.urlencode((string) $payment->asaas_checkout_id).'&limit=10', $tenant);
+            $pagas = array_values(array_filter($lista['data'] ?? [], fn ($c) => in_array(strtoupper((string) ($c['status'] ?? '')), self::PAID_STATUSES, true)));
+            $checkout = ['status' => $pagas ? 'PAID' : 'PENDING'];
         } catch (\Throwable $e) {
             Log::warning('Ride checkout reconcile failed', [
                 'payment_id' => $payment->id,

@@ -14,9 +14,9 @@ docker exec -w /srv/sites/clients/appchama-dev $PHP php artisan migrate --force 
 docker exec -w /srv/sites/clients/appchama-dev $PHP php artisan optimize:clear >/dev/null 2>&1
 
 total_falhas=0
-for s in verifica-isolamento verifica-telas verifica-otp verifica-cidades verifica-paineis verifica-corrida verifica-textos-marca verifica-credito-manual verifica-perfil-pagamento verifica-sms; do
+for s in verifica-isolamento verifica-telas verifica-otp verifica-cidades verifica-paineis verifica-corrida verifica-textos-marca verifica-credito-manual verifica-perfil-pagamento verifica-sms verifica-pagamento-saidas; do
   saida=$(docker exec -w /srv/sites/clients/appchama-dev $PHP php artisan tinker scripts/$s.php 2>&1)
-  resumo=$(echo "$saida" | grep -E "RESULTADO:|TELAS:|OTP:|CIDADES:|PAINEIS:|CORRIDA:|TEXTOS:|CREDITO MANUAL:|PERFIL PAGAMENTO:|SMS:" | tail -1)
+  resumo=$(echo "$saida" | grep -E "RESULTADO:|TELAS:|OTP:|CIDADES:|PAINEIS:|CORRIDA:|TEXTOS:|CREDITO MANUAL:|PERFIL PAGAMENTO:|SMS:|PAGAMENTO SAIDAS:" | tail -1)
   falhas=$(echo "$resumo" | grep -oE "[0-9]+ falhas" | grep -oE "[0-9]+")
   printf "%-24s %s\n" "$s" "${resumo:-SEM RESULTADO (erro ao rodar)}"
   if [ -z "$falhas" ] || [ "$falhas" != "0" ]; then
