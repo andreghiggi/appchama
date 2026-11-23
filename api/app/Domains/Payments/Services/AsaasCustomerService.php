@@ -12,7 +12,9 @@ class AsaasCustomerService
 
     public function ensureForUser(User $user, Tenant $tenant): string
     {
-        $this->assertPaymentProfile($user);
+        // Pix: basta nome completo + CPF (os demais dados, se existirem no cadastro, vao junto)
+        abort_unless($user->hasFullName(), 422, 'Informe seu nome completo (nome e sobrenome) antes de pagar.');
+        abort_unless($user->hasPixProfile(), 422, 'Informe seu CPF antes de pagar.');
 
         if ($user->asaas_customer_id) {
             $this->syncCustomer($user, $tenant);
@@ -52,7 +54,7 @@ class AsaasCustomerService
 
     public function syncCustomer(User $user, Tenant $tenant): void
     {
-        if (! $user->asaas_customer_id || ! $user->hasPaymentProfile()) {
+        if (! $user->asaas_customer_id || ! $user->hasPixProfile()) {
             return;
         }
 

@@ -113,6 +113,37 @@ class User extends Authenticatable implements FilamentUser
         return preg_match('/\S+\s+\S+/u', trim((string) $this->name)) === 1;
     }
 
+    /** Pix no Asaas pede so nome completo e CPF valido (o endereco nao e obrigatorio). */
+    public function hasPixProfile(): bool
+    {
+        return $this->hasFullName() && filled($this->cpf) && \App\Support\Cpf::isValid((string) $this->cpf);
+    }
+
+    /**
+     * O que ainda falta o passageiro informar para pagar: so isso e pedido no app (o resto ja veio do cadastro).
+     *
+     * @return list<string> chaves: name, cpf, email, home_address, home_address_number, home_postal_code, home_city, home_state
+     */
+    public function missingPaymentFields(string $method = 'pix'): array
+    {
+        $falta = [];
+        if (! $this->hasFullName()) {
+            $falta[] = 'name';
+        }
+        if (blank($this->cpf) || ! \App\Support\Cpf::isValid((string) $this->cpf)) {
+            $falta[] = 'cpf';
+        }
+        if ($method === 'credit_card') {
+            foreach (['email', 'home_address', 'home_address_number', 'home_postal_code', 'home_city', 'home_state'] as $campo) {
+                if (blank($this->{$campo})) {
+                    $falta[] = $campo;
+                }
+            }
+        }
+
+        return $falta;
+    }
+
     public function hasPaymentProfile(): bool
     {
         return $this->hasFullName()

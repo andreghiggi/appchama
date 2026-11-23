@@ -31,9 +31,23 @@ class OtpService
             'expires_at' => now()->addMinutes(10),
         ]);
 
-        $provider = config('services.sms.provider', 'log');
+        $sms = app(SmsGateway::class);
 
-        if ($provider === 'log' && $fixo === null) {
+        // Conta de teste (codigo fixo) nunca gasta SMS; os demais saem pelo fornecedor configurado.
+        if ($fixo === null && $sms->realmenteEnvia()) {
+            try {
+                $sms->send($phone, ($tenant->name ?: 'Vai de 55').": seu codigo e {$code}. Nao compartilhe com ninguem.");
+            } catch (\Throwable $e) {
+                // sem o SMS o codigo nao serve para nada: apaga e avisa a pessoa de forma simples
+                OtpCode::query()->where('tenant_id', $tenant->id)->where('phone', $phone)->delete();
+                Log::error('sms.falha_envio', ['telefone' => '****'.substr(preg_replace('/\D/', '', $phone), -4), 'erro' => $e->getMessage()]);
+                abort(503, 'Não foi possível enviar o SMS agora. Tente de novo em instantes.');
+            }
+
+            return;
+        }
+
+        if ($fixo === null) {
             // O codigo so vai para o log em desenvolvimento; em producao o log nao guarda codigos.
             Log::info(config('services.sms.expose_debug_code')
                 ? "OTP for {$phone}: {$code}"

@@ -39,6 +39,13 @@ return [
         'provider' => env('SMS_PROVIDER', 'log'),
         // Devolver o codigo na resposta da API so em desenvolvimento. Em producao fica DESLIGADO.
         'expose_debug_code' => (bool) env('OTP_EXPOSE_DEBUG_CODE', false),
+        // Twilio (so usado com SMS_PROVIDER=twilio). Os valores ficam no .env do servidor, nunca no Git.
+        'twilio' => [
+            'account_sid' => env('TWILIO_ACCOUNT_SID'),
+            'auth_token' => env('TWILIO_AUTH_TOKEN'),
+            'from' => env('TWILIO_FROM'),
+            'messaging_service_sid' => env('TWILIO_MESSAGING_SERVICE_SID'),
+        ],
     ],
 
     // Contas de teste (revisao das lojas, testes internos): "telefone:codigo,telefone:codigo".

@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TelaSegura } from '../shared/TelaSegura';
 import AvisoAtualizacao from '../shared/AvisoAtualizacao';
+import GpsObrigatorio from '../shared/GpsObrigatorio';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -138,7 +139,9 @@ export default function App() {
         <AuthProvider>
           <NavigationContainer>
             <StatusBar style="light" />
-            <MainApp />
+            <GpsObrigatorio>
+              <MainApp />
+            </GpsObrigatorio>
             <AvisoAtualizacao app="driver" />
           </NavigationContainer>
         </AuthProvider>
