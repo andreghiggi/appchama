@@ -13,6 +13,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import WalletScreen from './src/screens/WalletScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
+import SuporteScreen from '../shared/SuporteScreen';
 import OfferScreen from './src/screens/OfferScreen';
 import ActiveRideScreen from './src/screens/ActiveRideScreen';
 import PendingApprovalScreen from './src/screens/PendingApprovalScreen';
@@ -41,6 +42,7 @@ function MainApp() {
   const [activeRideId, setActiveRideId] = useState<string | null>(null);
   const [showWallet, setShowWallet] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSupport, setShowSupport] = useState(false);
 
   const canDrive = Boolean(user) && !driverNeedsApproval(user as User);
   const { restoredRide, restoring } = useActiveRideRecovery(canDrive);
@@ -97,6 +99,10 @@ function MainApp() {
     return <HistoryScreen onBack={() => setShowHistory(false)} />;
   }
 
+  if (showSupport) {
+    return <SuporteScreen papel="driver" onBack={() => setShowSupport(false)} />;
+  }
+
   if (offer) {
     return (
       <TelaSegura>
@@ -127,6 +133,7 @@ function MainApp() {
         onOffer={(ride, expiresIn) => setOffer({ ride, expiresIn })}
         onOpenWallet={() => setShowWallet(true)}
         onOpenHistory={() => setShowHistory(true)}
+        onOpenSupport={() => setShowSupport(true)}
       />
     </TelaSegura>
   );

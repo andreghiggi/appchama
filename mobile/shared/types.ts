@@ -132,6 +132,29 @@ export type DriverWithdrawal = {
   fail_reason?: string | null;
 };
 
+/** Chamado de suporte (passageiro ou motorista falando com a equipe da marca). */
+export type SupportMessage = {
+  id: string;
+  author: 'user' | 'staff';
+  body: string;
+  created_at: string;
+};
+
+export type SupportTicket = {
+  id: string;
+  category: string;
+  category_label: string;
+  subject: string;
+  status: 'open' | 'in_progress' | 'closed';
+  status_label: string;
+  ride_id?: string | null;
+  /** Há resposta da equipe que o usuário ainda não leu. */
+  unread: boolean;
+  last_message_at?: string | null;
+  created_at?: string | null;
+  messages?: SupportMessage[];
+};
+
 export type GeocodeResult = {
   latitude: number;
   longitude: number;

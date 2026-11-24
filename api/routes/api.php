@@ -7,8 +7,10 @@ use App\Http\Controllers\Api\DriverWalletController;
 use App\Http\Controllers\Api\GeocodeController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RideController;
+use App\Http\Controllers\Api\RideExtraController;
 use App\Http\Controllers\Api\RidePaymentController;
 use App\Http\Controllers\Api\SavedAddressController;
+use App\Http\Controllers\Api\SupportTicketController;
 use App\Http\Controllers\Webhooks\AsaasWebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -43,6 +45,11 @@ Route::prefix('v1')->middleware(['tenant'])->group(function () {
         Route::post('/rides/{ride}/start', [RideController::class, 'start']);
         Route::post('/rides/{ride}/complete', [RideController::class, 'complete']);
         Route::post('/rides/{ride}/cancel', [RideController::class, 'cancel']);
+        Route::get('/rides/{ride}/extras', [RideExtraController::class, 'index']);
+        Route::post('/rides/{ride}/extras', [RideExtraController::class, 'store'])->middleware('throttle:20,1');
+        Route::post('/rides/{ride}/extras/{extra}/accept', [RideExtraController::class, 'accept']);
+        Route::post('/rides/{ride}/extras/{extra}/dispute', [RideExtraController::class, 'dispute']);
+        Route::post('/rides/{ride}/extras/{extra}/cancel', [RideExtraController::class, 'cancel']);
         Route::post('/rides/{ride}/rate', [RideController::class, 'rate']);
         Route::get('/rides/{ride}/payment', [RidePaymentController::class, 'show']);
         Route::post('/rides/{ride}/pay', [RidePaymentController::class, 'pay']);
@@ -66,6 +73,11 @@ Route::prefix('v1')->middleware(['tenant'])->group(function () {
         Route::get('/drivers/withdrawals', [DriverWalletController::class, 'listWithdrawals']);
         Route::get('/drivers/earnings-report', [DriverWalletController::class, 'earningsReport']);
 
+        Route::get('/support/tickets', [SupportTicketController::class, 'index']);
+        Route::post('/support/tickets', [SupportTicketController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('/support/tickets/{supportTicket}', [SupportTicketController::class, 'show']);
+        Route::post('/support/tickets/{supportTicket}/messages', [SupportTicketController::class, 'reply'])->middleware('throttle:30,1');
+        Route::post('/support/tickets/{supportTicket}/close', [SupportTicketController::class, 'close']);
         Route::get('/saved-addresses', [SavedAddressController::class, 'index']);
         Route::post('/saved-addresses', [SavedAddressController::class, 'store']);
         Route::delete('/saved-addresses/{savedAddress}', [SavedAddressController::class, 'destroy']);

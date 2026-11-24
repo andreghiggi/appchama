@@ -1,6 +1,6 @@
 import { API_URL, TENANT_SLUG } from './theme';
 import type { BrandConfig } from './brand';
-import type { Ride, User, City, GeocodeResult, RidePaymentInfo, DriverWalletInfo, DriverWithdrawal } from './types';
+import type { Ride, User, City, GeocodeResult, RidePaymentInfo, DriverWalletInfo, DriverWithdrawal, SupportTicket } from './types';
 
 let authToken: string | null = null;
 
@@ -166,6 +166,23 @@ export const api = {
 
   listRides: (page = 1) =>
     request<{ data: Ride[]; current_page?: number; last_page?: number }>(`/rides?page=${page}`),
+
+  // ---- suporte
+  listSupportTickets: () =>
+    request<{ data: SupportTicket[]; categories: Record<string, string>; unread: number }>('/support/tickets'),
+
+  openSupportTicket: (category: string, body: string, rideId?: string | null) =>
+    request<SupportTicket>('/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify({ category, body, ...(rideId ? { ride_id: rideId } : {}) }),
+    }),
+
+  getSupportTicket: (id: string) => request<SupportTicket>(`/support/tickets/${id}`),
+
+  replySupportTicket: (id: string, body: string) =>
+    request<SupportTicket>(`/support/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify({ body }) }),
+
+  closeSupportTicket: (id: string) => request<SupportTicket>(`/support/tickets/${id}/close`, { method: 'POST' }),
 
   /** Sem argumento: cidades com corridas (passageiro). 'driver': cidades abertas ao cadastro de motorista. */
   listCities: (forRole?: 'driver') => request<City[]>(forRole === 'driver' ? '/cities?for=driver' : '/cities'),
