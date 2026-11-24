@@ -28,6 +28,8 @@ try {
     $drv->forceFill(['online' => true, 'background_check_status' => 'approved', 'subscription_status' => 'active'])->save();
     $user->forceFill(['status' => 'active'])->save();
     app(DriverWalletService::class)->creditManual($driverId, 500, 'teste', 'verifica');
+    // corridas antigas do banco de desenvolvimento nao podem atrapalhar (a transacao desfaz isto no fim)
+    Ride::withoutGlobalScopes()->where('driver_id', $driverId)->whereIn('status', ['accepted', 'driver_arrived', 'in_progress'])->update(['status' => 'completed']);
 
     $loc = app(DriverLocationService::class);
     $svc = app(RideService::class);
