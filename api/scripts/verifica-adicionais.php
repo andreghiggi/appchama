@@ -2,7 +2,7 @@
 // Verifica o adicional "por fora" do motorista (parada/espera/distancia): pedir, passageiro aceitar/discordar, limites, isolamento e que NAO mexe no valor da corrida. Tudo dentro de transacao, desfeito no fim.
 // Rodar: php artisan tinker scripts/verifica-adicionais.php
 use App\Domains\Rides\Services\RideExtraService;
-use App\Models\{City, Ride, RideExtra, SupportTicket, User};
+use App\Models\{City, DeviceToken, Ride, RideExtra, SupportTicket, User};
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\{DB, Http};
 
@@ -24,10 +24,13 @@ try {
     $ride = Ride::query()->create(['tenant_id' => $pass->tenant_id, 'city_id' => $city->id, 'passenger_id' => $pass->id, 'driver_id' => $drv->id, 'status' => 'in_progress',
         'origin_lat' => -29.23, 'origin_lng' => -51.87, 'destination_lat' => -29.24, 'destination_lng' => -51.88, 'estimated_fare' => 20.00, 'final_fare' => 20.00, 'requested_at' => now()]);
 
+    foreach ([$pass, $drv] as $u) { DeviceToken::withoutGlobalScopes()->create(['tenant_id' => $u->tenant_id, 'user_id' => $u->id, 'token' => 'ExponentPushToken[teste-'.substr($u->id, 0, 8).']', 'platform' => 'android']); }
+    $pagAntes = $ride->fresh()->payment_status;
+
     // --- pedir
     $e = $svc->create($ride, $drv, 8.50, 'stop', 'Parar na farmacia');
     $check('motorista registra adicional pendente', $e->status === 'pending' && (float) $e->amount === 8.5 && $e->reason === 'stop', $e->toArray());
-    $check('NAO muda o valor da corrida nem o pagamento', (float) $ride->fresh()->final_fare === 20.0 && $ride->fresh()->payment_status === $ride->payment_status);
+    $check('NAO muda o valor da corrida nem o pagamento', (float) $ride->fresh()->final_fare === 20.0 && $ride->fresh()->payment_status === $pagAntes);
     [$s] = $http(fn () => $svc->create($ride, $drv, 5, 'wait', null));
     $check('nao abre outro enquanto o passageiro nao respondeu (422)', $s === 422);
     Http::assertSent(fn ($r) => str_contains($r->url(), 'exp.host') && ($r[0]['data']['type'] ?? null) === 'ride_extra' && ($r[0]['data']['extra_id'] ?? null) === $e->id);
