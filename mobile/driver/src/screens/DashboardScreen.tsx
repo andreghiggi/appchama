@@ -28,6 +28,7 @@ type Props = {
   onOffer: (ride: Ride, expiresIn: number) => void;
   onOpenWallet: () => void;
   onOpenHistory: () => void;
+  onOpenSupport: () => void;
 };
 
 function haQuanto(desde: number, agora: number): string {
@@ -44,7 +45,7 @@ function tempoOnline(desde: number | null, agora: number): string {
   return `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')} min`;
 }
 
-export default function DashboardScreen({ onOffer, onOpenWallet, onOpenHistory }: Props) {
+export default function DashboardScreen({ onOffer, onOpenWallet, onOpenHistory, onOpenSupport }: Props) {
   const { logout } = useAuth();
   const queryClient = useQueryClient();
   const [online, setOnline] = useState(false);
@@ -329,6 +330,10 @@ export default function DashboardScreen({ onOffer, onOpenWallet, onOpenHistory }
 
       <Pressable style={styles.walletBtn} onPress={onOpenHistory}>
         <Text style={styles.walletBtnText}>Minhas corridas</Text>
+      </Pressable>
+
+      <Pressable style={styles.walletBtn} onPress={onOpenSupport}>
+        <Text style={styles.walletBtnText}>Ajuda e suporte</Text>
       </Pressable>
 
       <View style={styles.badge}>

@@ -13,10 +13,12 @@ import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import WalletScreen from './src/screens/WalletScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
+import SuporteScreen from '../shared/SuporteScreen';
 import OfferScreen from './src/screens/OfferScreen';
 import ActiveRideScreen from './src/screens/ActiveRideScreen';
 import PendingApprovalScreen from './src/screens/PendingApprovalScreen';
-import type { Ride, User } from '../shared/types';
+import { api } from '../shared/api';
+import type { NextRide, Ride, User } from '../shared/types';
 import { theme } from '../shared/theme';
 import { useActiveRideRecovery } from '../shared/useActiveRide';
 import { registrarPush } from '../shared/push';
@@ -41,6 +43,34 @@ function MainApp() {
   const [activeRideId, setActiveRideId] = useState<string | null>(null);
   const [showWallet, setShowWallet] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSupport, setShowSupport] = useState(false);
+  const [nextRide, setNextRide] = useState<NextRide | null>(null);
+
+  // Com passageiro no carro: depois de 20% do trajeto o servidor pode oferecer a próxima corrida. Aqui só se escuta
+  // a oferta (a regra de quem pode receber é do servidor) e se mostra a corrida já aceita que está na fila.
+  useEffect(() => {
+    if (!activeRideId) {
+      setNextRide(null);
+      return;
+    }
+    let vivo = true;
+    const ver = async () => {
+      try {
+        const [o, a] = await Promise.all([api.getPendingOffer(), api.getActiveRide()]);
+        if (!vivo) return;
+        setNextRide(a.next_ride ?? null);
+        if (o.ride && o.expires_in) setOffer((atual) => atual ?? { ride: o.ride as Ride, expiresIn: o.expires_in as number });
+      } catch {
+        /* sem rede: tenta no próximo ciclo */
+      }
+    };
+    void ver();
+    const t = setInterval(ver, 6000);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+    };
+  }, [activeRideId]);
 
   const canDrive = Boolean(user) && !driverNeedsApproval(user as User);
   const { restoredRide, restoring } = useActiveRideRecovery(canDrive);
@@ -97,6 +127,10 @@ function MainApp() {
     return <HistoryScreen onBack={() => setShowHistory(false)} />;
   }
 
+  if (showSupport) {
+    return <SuporteScreen papel="driver" onBack={() => setShowSupport(false)} />;
+  }
+
   if (offer) {
     return (
       <TelaSegura>
@@ -104,7 +138,8 @@ function MainApp() {
           ride={offer.ride}
           expiresIn={offer.expiresIn}
           onAccepted={() => {
-            setActiveRideId(offer.ride.id);
+            // com uma corrida já em andamento, a nova fica na fila e a atual continua na tela
+            setActiveRideId((atual) => atual ?? offer.ride.id);
             setOffer(null);
           }}
           onDismiss={() => setOffer(null)}
@@ -116,7 +151,17 @@ function MainApp() {
   if (activeRideId) {
     return (
       <TelaSegura>
-        <ActiveRideScreen rideId={activeRideId} onDone={() => setActiveRideId(null)} />
+        <ActiveRideScreen
+          rideId={activeRideId}
+          nextRide={nextRide}
+          onDone={() => {
+            // se há corrida na fila, segue direto para ela; senão volta ao painel
+            api
+              .getActiveRide()
+              .then(({ ride }) => setActiveRideId(ride && ride.id !== activeRideId ? ride.id : null))
+              .catch(() => setActiveRideId(null));
+          }}
+        />
       </TelaSegura>
     );
   }
@@ -127,6 +172,7 @@ function MainApp() {
         onOffer={(ride, expiresIn) => setOffer({ ride, expiresIn })}
         onOpenWallet={() => setShowWallet(true)}
         onOpenHistory={() => setShowHistory(true)}
+        onOpenSupport={() => setShowSupport(true)}
       />
     </TelaSegura>
   );

@@ -20,16 +20,19 @@ import { distanciaAteAlvoKm, formatEta, mensagemMotorista, zoomPorDistanciaKm } 
 import { AppMap, AppMarker, AppRoute } from '../../../shared/SimpleMap';
 import { rideStatusLabel } from '../../../shared/labels';
 import { theme } from '../../../shared/theme';
-import type { Ride } from '../../../shared/types';
+import { AdicionaisMotorista } from '../../../shared/AdicionaisCorrida';
+import type { NextRide, Ride } from '../../../shared/types';
 
 type Props = {
   rideId: string;
   onDone: () => void;
+  /** Próxima corrida já aceita (fila): ao terminar esta, o motorista segue para ela. */
+  nextRide?: NextRide | null;
 };
 
 type Ponto = { latitude: number; longitude: number };
 
-export default function ActiveRideScreen({ rideId, onDone }: Props) {
+export default function ActiveRideScreen({ rideId, onDone, nextRide }: Props) {
   const [ride, setRide] = useState<Ride | null>(null);
   const [loading, setLoading] = useState(false);
   const [myLocation, setMyLocation] = useState<Ponto | null>(null);
@@ -307,6 +310,19 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
           </Pressable>
         ) : null}
 
+        {nextRide && ride.status === 'in_progress' ? (
+          <View style={styles.proxima}>
+            <Text style={styles.proximaTitulo}>Próxima corrida na fila</Text>
+            <Text style={styles.proximaTxt} numberOfLines={2}>
+              Embarque: {nextRide.origin_address || 'ver no app'}
+              {nextRide.passenger_name ? ` · ${nextRide.passenger_name}` : ''}
+            </Text>
+            <Text style={styles.proximaTxt}>Começa quando você finalizar esta corrida.</Text>
+          </View>
+        ) : null}
+
+        {['in_progress', 'awaiting_payment'].includes(ride.status) ? <AdicionaisMotorista rideId={ride.id} status={ride.status} /> : null}
+
         {['accepted', 'driver_arrived'].includes(ride.status) && (
           <Pressable style={styles.cancel} onPress={cancelRide} disabled={loading}>
             <Text style={styles.cancelText}>Cancelar corrida</Text>
@@ -344,7 +360,7 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
                     : 'Corrida paga pelo app. Já está registrada na sua carteira.'}
                 </Text>
                 <Pressable style={styles.button} onPress={onDone}>
-                  <Text style={styles.buttonText}>Voltar ao painel</Text>
+                  <Text style={styles.buttonText}>{nextRide ? 'Ir para a próxima corrida' : 'Voltar ao painel'}</Text>
                 </Pressable>
               </>
             ) : (
@@ -366,7 +382,7 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
                   </Pressable>
                 ) : null}
                 <Pressable style={styles.navLink} onPress={onDone}>
-                  <Text style={styles.navLinkText}>Voltar ao painel</Text>
+                  <Text style={styles.navLinkText}>{nextRide ? 'Ir para a próxima corrida' : 'Voltar ao painel'}</Text>
                 </Pressable>
               </>
             )}
@@ -378,6 +394,9 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
 }
 
 const styles = StyleSheet.create({
+  proxima: { backgroundColor: '#E0F2FE', borderRadius: 12, padding: 12, marginTop: 8 },
+  proximaTitulo: { fontWeight: '800', color: '#075985', marginBottom: 2 },
+  proximaTxt: { color: '#0C4A6E', fontSize: 13, lineHeight: 18 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1, backgroundColor: theme.bg },
   mapWrap: { flex: 1, position: 'relative' },

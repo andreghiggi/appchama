@@ -139,7 +139,9 @@ class RideController extends Controller
         if ($user->isDriver()) {
             // Motorista não retoma tela de pagamento após recarregar — só corrida em andamento.
             $query->where('driver_id', $user->id)
-                ->whereIn('status', ['accepted', 'driver_arrived', 'in_progress']);
+                ->whereIn('status', ['accepted', 'driver_arrived', 'in_progress'])
+                // com corrida encadeada, a que está em andamento vem primeiro
+                ->orderByRaw("case status when 'in_progress' then 0 when 'driver_arrived' then 1 else 2 end");
         } else {
             $query->where('passenger_id', $user->id)
                 ->where(function ($q): void {
@@ -157,8 +159,22 @@ class RideController extends Controller
             return response()->json(['ride' => null]);
         }
 
+        $proxima = null;
+        if ($user->isDriver() && $ride->status === 'in_progress') {
+            $n = Ride::query()->with('passenger:id,name')->where('driver_id', $user->id)->where('follows_ride_id', $ride->id)
+                ->whereIn('status', ['accepted', 'driver_arrived'])->first();
+            $proxima = $n ? [
+                'id' => $n->id,
+                'origin_address' => $n->origin_address,
+                'destination_address' => $n->destination_address,
+                'estimated_fare' => $n->estimated_fare,
+                'passenger_name' => $n->passenger?->name,
+            ] : null;
+        }
+
         return response()->json([
             'ride' => $this->trackingService->mergeIntoRide($ride),
+            'next_ride' => $proxima,
         ]);
     }
 

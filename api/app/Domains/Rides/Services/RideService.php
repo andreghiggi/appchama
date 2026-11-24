@@ -86,7 +86,16 @@ class RideService
         $this->walletService->assertCanAcceptRide($driver->driver, (float) $ride->estimated_fare, (float) ($tenant->platform_commission_pct ?? 15));
         abort_unless($offeredRide && $offeredRide->id === $ride->id, 422, 'Esta corrida não foi oferecida a você.');
 
-        DB::transaction(function () use ($ride, $driver): void {
+        // Motorista que já está numa corrida só aceita a próxima se tiver feito 20% do trajeto e não tiver outra na fila.
+        $ocupado = Ride::query()->where('driver_id', $driver->id)->whereIn('status', ['accepted', 'driver_arrived', 'in_progress'])->exists();
+        $segue = null;
+        if ($ocupado) {
+            $atual = app(RideChainService::class)->eligibleRide($driver->driver);
+            abort_unless($atual, 422, 'Você já está em uma corrida. Só dá para aceitar outra depois de concluir 20% do trajeto e com no máximo uma na fila.');
+            $segue = $atual->id;
+        }
+
+        DB::transaction(function () use ($ride, $driver, $segue): void {
             $locked = Ride::query()->whereKey($ride->id)->lockForUpdate()->firstOrFail();
 
             abort_unless($locked->status === 'searching', 422, 'Corrida não está disponível para aceite.');
@@ -94,6 +103,7 @@ class RideService
             $this->transition($locked, 'accepted', [
                 'driver_id' => $driver->id,
                 'accepted_at' => now(),
+                'follows_ride_id' => $segue,
             ]);
         });
 
@@ -126,6 +136,7 @@ class RideService
     public function arrive(Ride $ride, User $driver): Ride
     {
         $this->assertDriver($ride, $driver);
+        $this->exigirCorridaAnteriorTerminada($ride);
         $this->transition($ride, 'driver_arrived');
 
         return $ride->fresh(self::RIDE_RELATIONS);
@@ -134,6 +145,7 @@ class RideService
     public function start(Ride $ride, User $driver): Ride
     {
         $this->assertDriver($ride, $driver);
+        $this->exigirCorridaAnteriorTerminada($ride);
         $this->transition($ride, 'in_progress', ['started_at' => now()]);
 
         return $ride->fresh(self::RIDE_RELATIONS);
@@ -176,7 +188,8 @@ class RideService
             'payment_status' => 'pending',
         ]);
 
-        $this->driverLocation->setStatus($driver->id, 'available');
+        // continua "ocupado" se já houver outra corrida na fila (encadeada)
+        app(RideChainService::class)->releaseIfFree($driver->id, $this->driverLocation);
 
         return $ride->fresh(self::RIDE_RELATIONS);
     }
@@ -206,7 +219,7 @@ class RideService
         }
 
         if ($ride->driver_id) {
-            $this->driverLocation->setStatus($ride->driver_id, 'available');
+            app(RideChainService::class)->releaseIfFree($ride->driver_id, $this->driverLocation);
         }
 
         return $ride->fresh(self::RIDE_RELATIONS);
@@ -228,7 +241,7 @@ class RideService
             ]);
         });
 
-        $this->driverLocation->setStatus($driver->id, 'available');
+        app(RideChainService::class)->releaseIfFree($driver->id, $this->driverLocation);
         $this->offerService->markDeclined($ride->id, $driver->id);
         MatchDriverJob::resetState($ride->id);
 
@@ -304,6 +317,16 @@ class RideService
             $locked->update(array_merge(['status' => $status], $extra));
             event(new RideStatusChanged($locked->fresh()));
         });
+    }
+
+    /** Corrida encadeada: só começa depois que a anterior (em andamento) for finalizada ou cancelada. */
+    private function exigirCorridaAnteriorTerminada(Ride $ride): void
+    {
+        if (! $ride->follows_ride_id) {
+            return;
+        }
+        $anterior = Ride::query()->whereKey($ride->follows_ride_id)->first();
+        abort_if($anterior && in_array($anterior->status, ['accepted', 'driver_arrived', 'in_progress'], true), 422, 'Finalize a corrida em andamento antes de ir para a próxima.');
     }
 
     private function assertDriver(Ride $ride, User $driver): void

@@ -41,6 +41,8 @@ export type Vehicle = {
 export type ApiNumber = number | string;
 
 export type Ride = {
+  /** Corrida encadeada: só começa depois que esta outra (em andamento) terminar. */
+  follows_ride_id?: string | null;
   canceled_reason?: string | null;
   requested_at?: string | null;
   completed_at?: string | null;
@@ -130,6 +132,50 @@ export type DriverWithdrawal = {
   pix_key: string;
   created_at: string;
   fail_reason?: string | null;
+};
+
+/** Próxima corrida já aceita, na fila atrás da que está em andamento (só aparece para o motorista). */
+export type NextRide = {
+  id: string;
+  origin_address?: string | null;
+  destination_address?: string | null;
+  estimated_fare?: number | string | null;
+  passenger_name?: string | null;
+};
+
+/** Adicional "por fora" cobrado pelo motorista durante a viagem (parada, espera, distância a mais). */
+export type RideExtra = {
+  id: string;
+  ride_id: string;
+  amount: number;
+  reason: string;
+  reason_label: string;
+  note?: string | null;
+  status: 'pending' | 'accepted' | 'disputed' | 'canceled';
+  created_at?: string | null;
+};
+
+/** Chamado de suporte (passageiro ou motorista falando com a equipe da marca). */
+export type SupportMessage = {
+  id: string;
+  author: 'user' | 'staff';
+  body: string;
+  created_at: string;
+};
+
+export type SupportTicket = {
+  id: string;
+  category: string;
+  category_label: string;
+  subject: string;
+  status: 'open' | 'in_progress' | 'closed';
+  status_label: string;
+  ride_id?: string | null;
+  /** Há resposta da equipe que o usuário ainda não leu. */
+  unread: boolean;
+  last_message_at?: string | null;
+  created_at?: string | null;
+  messages?: SupportMessage[];
 };
 
 export type GeocodeResult = {

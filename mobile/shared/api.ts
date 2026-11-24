@@ -1,6 +1,6 @@
 import { API_URL, TENANT_SLUG } from './theme';
 import type { BrandConfig } from './brand';
-import type { Ride, User, City, GeocodeResult, RidePaymentInfo, DriverWalletInfo, DriverWithdrawal } from './types';
+import type { Ride, User, City, GeocodeResult, RidePaymentInfo, DriverWalletInfo, DriverWithdrawal, SupportTicket, RideExtra, NextRide } from './types';
 
 let authToken: string | null = null;
 
@@ -162,10 +162,39 @@ export const api = {
   unregisterDevice: (token: string) =>
     request<{ removido: boolean }>('/devices', { method: 'DELETE', body: JSON.stringify({ token }) }),
 
-  getActiveRide: () => request<{ ride: Ride | null }>('/rides/active'),
+  getActiveRide: () => request<{ ride: Ride | null; next_ride?: NextRide | null }>('/rides/active'),
 
   listRides: (page = 1) =>
     request<{ data: Ride[]; current_page?: number; last_page?: number }>(`/rides?page=${page}`),
+
+  // ---- adicional "por fora" (parada / espera)
+  listRideExtras: (rideId: string) => request<{ data: RideExtra[] }>(`/rides/${rideId}/extras`),
+
+  createRideExtra: (rideId: string, amount: number, reason: string, note?: string) =>
+    request<RideExtra>(`/rides/${rideId}/extras`, { method: 'POST', body: JSON.stringify({ amount, reason, ...(note ? { note } : {}) }) }),
+
+  acceptRideExtra: (rideId: string, id: string) => request<RideExtra>(`/rides/${rideId}/extras/${id}/accept`, { method: 'POST' }),
+
+  disputeRideExtra: (rideId: string, id: string) => request<RideExtra>(`/rides/${rideId}/extras/${id}/dispute`, { method: 'POST' }),
+
+  cancelRideExtra: (rideId: string, id: string) => request<RideExtra>(`/rides/${rideId}/extras/${id}/cancel`, { method: 'POST' }),
+
+  // ---- suporte
+  listSupportTickets: () =>
+    request<{ data: SupportTicket[]; categories: Record<string, string>; unread: number }>('/support/tickets'),
+
+  openSupportTicket: (category: string, body: string, rideId?: string | null) =>
+    request<SupportTicket>('/support/tickets', {
+      method: 'POST',
+      body: JSON.stringify({ category, body, ...(rideId ? { ride_id: rideId } : {}) }),
+    }),
+
+  getSupportTicket: (id: string) => request<SupportTicket>(`/support/tickets/${id}`),
+
+  replySupportTicket: (id: string, body: string) =>
+    request<SupportTicket>(`/support/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify({ body }) }),
+
+  closeSupportTicket: (id: string) => request<SupportTicket>(`/support/tickets/${id}/close`, { method: 'POST' }),
 
   /** Sem argumento: cidades com corridas (passageiro). 'driver': cidades abertas ao cadastro de motorista. */
   listCities: (forRole?: 'driver') => request<City[]>(forRole === 'driver' ? '/cities?for=driver' : '/cities'),

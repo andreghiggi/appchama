@@ -17,6 +17,7 @@ import { theme } from '../../../shared/theme';
 import type { Ride, RidePaymentInfo } from '../../../shared/types';
 import PaymentProfileForm from '../components/PaymentProfileForm';
 import { useAuth } from '../context/AuthContext';
+import { AdicionaisPassageiro } from '../../../shared/AdicionaisCorrida';
 
 type Props = {
   ride: Ride;
@@ -147,6 +148,8 @@ export default function PaymentScreen({ ride: initial, onPaid }: Props) {
         <Text style={styles.amountLabel}>Valor</Text>
         <Text style={styles.amount}>{formatBrl(amount)}</Text>
       </View>
+
+      <AdicionaisPassageiro rideId={ride.id} ativo={false} resumo />
 
       {info?.test_mode ? (
         <Text style={styles.testeAviso}>

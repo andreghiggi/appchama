@@ -16,6 +16,8 @@ import HistoryScreen from './src/screens/HistoryScreen';
 import TripSummaryScreen from './src/screens/TripSummaryScreen';
 import PaymentScreen from './src/screens/PaymentScreen';
 import RatingScreen from './src/screens/RatingScreen';
+import SuporteScreen from '../shared/SuporteScreen';
+import { api } from '../shared/api';
 import type { Ride } from '../shared/types';
 import { theme } from '../shared/theme';
 import { useActiveRideRecovery } from '../shared/useActiveRide';
@@ -37,6 +39,24 @@ function MainApp() {
   const [ratingRide, setRatingRide] = useState<Ride | null>(null);
 
   const { restoredRide, restoring } = useActiveRideRecovery(Boolean(user));
+
+  // Bolinha na aba "Ajuda" quando a equipe respondeu um chamado.
+  const [ajudaNova, setAjudaNova] = useState(0);
+  useEffect(() => {
+    if (!user) return;
+    let vivo = true;
+    const ver = () =>
+      api
+        .listSupportTickets()
+        .then((r) => vivo && setAjudaNova(r.unread))
+        .catch(() => undefined);
+    void ver();
+    const t = setInterval(ver, 60000);
+    return () => {
+      vivo = false;
+      clearInterval(t);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!restoredRide) return;
@@ -150,6 +170,9 @@ function MainApp() {
         {() => <HomeScreen onRideActive={setActiveRide} />}
       </Tab.Screen>
       <Tab.Screen name="Corridas" component={HistoryScreen} />
+      <Tab.Screen name="Ajuda" options={{ title: 'Ajuda e suporte', tabBarBadge: ajudaNova > 0 ? ajudaNova : undefined }}>
+        {() => <SuporteScreen papel="passenger" />}
+      </Tab.Screen>
       <Tab.Screen name="Sair" listeners={{ tabPress: (e) => { e.preventDefault(); logout(); } }}>
         {() => null}
       </Tab.Screen>

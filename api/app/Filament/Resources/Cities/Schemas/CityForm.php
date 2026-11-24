@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Cities\Schemas;
 
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
@@ -94,8 +95,36 @@ class CityForm
                             ->minValue(0)
                             ->step(0.01)
                             ->prefix('R$'),
+                        Repeater::make('km_tiers')
+                            ->label('Preço por km menor em viagens longas (opcional)')
+                            ->helperText('Cada linha diz: "a partir do km X, cada km passa a custar R$ Y". Vale só para os km que passam do ponto, sem degrau no preço. Exemplo: valor por km R$ 4,00; a partir do km 5 → R$ 3,50; a partir do km 10 → R$ 3,00. Uma viagem de 12 km = 5×4,00 + 5×3,50 + 2×3,00 = R$ 43,50 (mais bandeirada e minutos). Deixe vazio para cobrar o mesmo valor em todos os km.')
+                            ->schema([
+                                TextInput::make('from_km')->label('A partir do km')->required()->numeric()->minValue(0.1)->step(0.1)->suffix('km'),
+                                TextInput::make('price')->label('Valor do km (R$)')->required()->numeric()->minValue(0)->step(0.01)->prefix('R$'),
+                            ])
+                            ->columns(2)
+                            ->addActionLabel('Adicionar faixa')
+                            ->defaultItems(0)
+                            ->reorderable(false)
+                            ->columnSpanFull(),
                     ])
                     ->columns(2),
+                Section::make('Corrida com passageiro no carro')
+                    ->description('Permite ao motorista aceitar a próxima corrida enquanto ainda leva um passageiro, depois de concluir parte do trajeto.')
+                    ->schema([
+                        Toggle::make('chain_rides_enabled')
+                            ->label('Permitir nesta cidade')
+                            ->default(true),
+                        TextInput::make('chain_min_progress_pct')
+                            ->label('Trajeto já concluído para liberar')
+                            ->numeric()->minValue(1)->maxValue(95)->step(1)->default(20)->suffix('%')
+                            ->helperText('Padrão 20%: o motorista só recebe a próxima depois de fazer 20% do caminho até o destino.'),
+                        TextInput::make('chain_max_pickup_km')
+                            ->label('Embarque da próxima: até quantos km do destino atual')
+                            ->numeric()->minValue(0.5)->maxValue(50)->step(0.5)->default(5)->suffix('km')
+                            ->helperText('A nova corrida só é oferecida se o embarque ficar perto de onde o motorista vai deixar o passageiro atual.'),
+                    ])
+                    ->columns(3),
             ]);
     }
 }

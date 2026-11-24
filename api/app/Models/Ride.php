@@ -17,6 +17,7 @@ class Ride extends Model
         'city_id',
         'passenger_id',
         'driver_id',
+        'follows_ride_id',
         'status',
         'origin_lat',
         'origin_lng',
