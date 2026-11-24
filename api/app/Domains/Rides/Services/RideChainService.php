@@ -3,6 +3,7 @@
 namespace App\Domains\Rides\Services;
 
 use App\Domains\Drivers\Services\DriverLocationService;
+use App\Models\City;
 use App\Models\Driver;
 use App\Models\Ride;
 
@@ -12,9 +13,32 @@ use App\Models\Ride;
  */
 class RideChainService
 {
+    /** Chave geral (config/.env) — desliga tudo de uma vez. */
     public function enabled(): bool
     {
         return (bool) config('rides.chain.enabled', true);
+    }
+
+    /** Ligada nesta cidade? (a chave geral também precisa estar ligada) */
+    public function enabledFor(?City $city): bool
+    {
+        return $this->enabled() && ($city === null || $city->chain_rides_enabled !== false);
+    }
+
+    /** Fração mínima do trajeto (0.20 = 20%) — valor da cidade, ou o padrão da config. */
+    public function minProgress(?City $city): float
+    {
+        $pct = $city?->chain_min_progress_pct;
+
+        return $pct !== null ? max(1, min(95, (int) $pct)) / 100 : (float) config('rides.chain.min_progress', 0.20);
+    }
+
+    /** Distância máxima (km) do destino atual até o embarque da nova corrida — valor da cidade, ou o padrão. */
+    public function maxPickupKm(?City $city): float
+    {
+        $km = $city?->chain_max_pickup_km;
+
+        return $km !== null ? max(0.5, (float) $km) : (float) config('rides.chain.max_pickup_km', 5.0);
     }
 
     /** Fração já percorrida da corrida (0 a 1), em linha reta, pela posição atual do motorista; null se não dá para saber. */
@@ -46,9 +70,13 @@ class RideChainService
             return null;
         }
         $a = $rides->first();
+        $city = City::query()->withoutGlobalScopes()->find($a->city_id);
+        if (! $this->enabledFor($city)) {
+            return null;
+        }
         $p = $this->progress($a, $driver);
 
-        return $p !== null && $p >= (float) config('rides.chain.min_progress', 0.20) ? $a : null;
+        return $p !== null && $p >= $this->minProgress($city) ? $a : null;
     }
 
     /**
@@ -58,10 +86,11 @@ class RideChainService
      */
     public function candidatesFor(string $cityId, float $pickupLat, float $pickupLng): array
     {
-        if (! $this->enabled()) {
+        $city = City::query()->withoutGlobalScopes()->find($cityId);
+        if (! $this->enabledFor($city)) {
             return [];
         }
-        $max = (float) config('rides.chain.max_pickup_km', 5.0);
+        $max = $this->maxPickupKm($city);
         $out = [];
 
         $drivers = Driver::query()->with('user')->where('city_id', $cityId)->where('online', true)
