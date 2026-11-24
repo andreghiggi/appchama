@@ -43,7 +43,7 @@ try {
         'origin_lat' => $o[0], 'origin_lng' => $o[1], 'destination_lat' => $d[0], 'destination_lng' => $d[1],
         'estimated_fare' => 20, 'requested_at' => now(), 'started_at' => $status === 'in_progress' ? now() : null]);
     $em = fn (float $f) => [$oA[0] + ($dA[0] - $oA[0]) * $f, $oA[1] + ($dA[1] - $oA[1]) * $f];
-    $mover = function (float $f) use ($drv, $loc, $em) { [$la, $ln] = $em($f); $drv->forceFill(['current_lat' => $la, 'current_lng' => $ln])->save(); $loc->update($drv->fresh(), $la, $ln); };
+    $mover = function (float $f) use ($drv, $loc, $em, $user) { [$la, $ln] = $em($f); $drv->forceFill(['current_lat' => $la, 'current_lng' => $ln])->save(); $loc->update($drv->fresh(), $la, $ln); $user->unsetRelation('driver'); };
     $nasListas = fn (Ride $r) => collect($loc->findNearby($city->id, (float) $r->origin_lat, (float) $r->origin_lng))->first(fn ($c) => $c['driver']->user_id === $driverId);
 
     // A em andamento, motorista ocupado
