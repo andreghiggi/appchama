@@ -2,6 +2,7 @@
 
 namespace App\Domains\Rides\Services;
 
+use App\Domains\Drivers\Services\DriverLocationService;
 use App\Models\Driver;
 use App\Models\Ride;
 
