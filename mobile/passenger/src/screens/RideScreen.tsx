@@ -13,6 +13,7 @@ import NavBanner from '../../../shared/NavBanner';
 import { mensagemPassageiro } from '../../../shared/navegacao';
 import { AppMap, AppMarker, AppRoute } from '../../../shared/SimpleMap';
 import { theme } from '../../../shared/theme';
+import { AdicionaisPassageiro } from '../../../shared/AdicionaisCorrida';
 import type { Ride } from '../../../shared/types';
 
 type Props = {
@@ -127,7 +128,9 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
       ? 'Motorista no local de embarque'
       : ride.status === 'in_progress'
         ? 'Chegada prevista'
-        : 'Indo até o seu embarque';
+        : ride.follows_ride_id
+          ? 'Ele está terminando outra corrida e vem até você em seguida'
+          : 'Indo até o seu embarque';
   const etaBox = ride.status === 'driver_arrived' ? null : etaOk ? Math.max(1, Math.round(etaNum)) : null;
   const ratingNum = Number(ride.driver?.rating_avg);
   const ratingTxt = Number.isFinite(ratingNum) && ratingNum > 0 ? ratingNum.toFixed(1).replace('.', ',') : null;

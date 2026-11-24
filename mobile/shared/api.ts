@@ -1,6 +1,6 @@
 import { API_URL, TENANT_SLUG } from './theme';
 import type { BrandConfig } from './brand';
-import type { Ride, User, City, GeocodeResult, RidePaymentInfo, DriverWalletInfo, DriverWithdrawal, SupportTicket, RideExtra } from './types';
+import type { Ride, User, City, GeocodeResult, RidePaymentInfo, DriverWalletInfo, DriverWithdrawal, SupportTicket, RideExtra, NextRide } from './types';
 
 let authToken: string | null = null;
 
@@ -162,7 +162,7 @@ export const api = {
   unregisterDevice: (token: string) =>
     request<{ removido: boolean }>('/devices', { method: 'DELETE', body: JSON.stringify({ token }) }),
 
-  getActiveRide: () => request<{ ride: Ride | null }>('/rides/active'),
+  getActiveRide: () => request<{ ride: Ride | null; next_ride?: NextRide | null }>('/rides/active'),
 
   listRides: (page = 1) =>
     request<{ data: Ride[]; current_page?: number; last_page?: number }>(`/rides?page=${page}`),
