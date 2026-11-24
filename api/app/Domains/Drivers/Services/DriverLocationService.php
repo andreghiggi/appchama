@@ -2,6 +2,7 @@
 
 namespace App\Domains\Drivers\Services;
 
+use App\Domains\Rides\Services\RideChainService;
 use App\Events\DriverLocationUpdated;
 use App\Models\Driver;
 use App\Models\Ride;
@@ -26,13 +27,16 @@ class DriverLocationService
             'last_location_at' => now(),
         ]);
 
-        $activeRide = Ride::query()
+        // com corrida encadeada há duas ativas: ambos os passageiros acompanham o motorista, mas só a que está em andamento grava o trajeto
+        $activeRides = Ride::query()
             ->where('driver_id', $driverId)
             ->whereIn('status', ['accepted', 'driver_arrived', 'in_progress'])
-            ->first();
+            ->get();
 
-        if ($activeRide) {
-            $this->maybeSnapshot($driverId, $activeRide, $lat, $lng);
+        foreach ($activeRides as $activeRide) {
+            if ($activeRide->status === 'in_progress' || $activeRides->count() === 1) {
+                $this->maybeSnapshot($driverId, $activeRide, $lat, $lng);
+            }
             event(new DriverLocationUpdated($activeRide, $lat, $lng));
         }
     }
@@ -88,6 +92,11 @@ class DriverLocationService
                     continue;
                 }
 
+                // motorista ocupado não recebe oferta por aqui (só pela regra da corrida encadeada)
+                if (Redis::get("driver:{$driver->user_id}:status") === 'busy') {
+                    continue;
+                }
+
                 $drivers[] = [
                     'driver' => $driver,
                     'distance_km' => $this->distanceKm(
@@ -97,6 +106,14 @@ class DriverLocationService
                         (float) ($driver->current_lng ?? $lng),
                     ),
                 ];
+            }
+        }
+
+        // Motoristas com passageiro no carro que já fizeram 20% do trajeto entram no fim da fila (livres vêm primeiro).
+        $conhecidos = array_map(fn (array $d) => $d['driver']->user_id, $drivers);
+        foreach (app(RideChainService::class)->candidatesFor($cityId, $lat, $lng) as $c) {
+            if (! in_array($c['driver']->user_id, $conhecidos, true)) {
+                $drivers[] = $c;
             }
         }
 

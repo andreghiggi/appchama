@@ -1,6 +1,6 @@
 import { API_URL, TENANT_SLUG } from './theme';
 import type { BrandConfig } from './brand';
-import type { Ride, User, City, GeocodeResult, RidePaymentInfo, DriverWalletInfo, DriverWithdrawal, SupportTicket } from './types';
+import type { Ride, User, City, GeocodeResult, RidePaymentInfo, DriverWalletInfo, DriverWithdrawal, SupportTicket, RideExtra } from './types';
 
 let authToken: string | null = null;
 
@@ -166,6 +166,18 @@ export const api = {
 
   listRides: (page = 1) =>
     request<{ data: Ride[]; current_page?: number; last_page?: number }>(`/rides?page=${page}`),
+
+  // ---- adicional "por fora" (parada / espera)
+  listRideExtras: (rideId: string) => request<{ data: RideExtra[] }>(`/rides/${rideId}/extras`),
+
+  createRideExtra: (rideId: string, amount: number, reason: string, note?: string) =>
+    request<RideExtra>(`/rides/${rideId}/extras`, { method: 'POST', body: JSON.stringify({ amount, reason, ...(note ? { note } : {}) }) }),
+
+  acceptRideExtra: (rideId: string, id: string) => request<RideExtra>(`/rides/${rideId}/extras/${id}/accept`, { method: 'POST' }),
+
+  disputeRideExtra: (rideId: string, id: string) => request<RideExtra>(`/rides/${rideId}/extras/${id}/dispute`, { method: 'POST' }),
+
+  cancelRideExtra: (rideId: string, id: string) => request<RideExtra>(`/rides/${rideId}/extras/${id}/cancel`, { method: 'POST' }),
 
   // ---- suporte
   listSupportTickets: () =>

@@ -307,6 +307,8 @@ export default function ActiveRideScreen({ rideId, onDone }: Props) {
           </Pressable>
         ) : null}
 
+        {['in_progress', 'awaiting_payment'].includes(ride.status) ? <AdicionaisMotorista rideId={ride.id} status={ride.status} /> : null}
+
         {['accepted', 'driver_arrived'].includes(ride.status) && (
           <Pressable style={styles.cancel} onPress={cancelRide} disabled={loading}>
             <Text style={styles.cancelText}>Cancelar corrida</Text>

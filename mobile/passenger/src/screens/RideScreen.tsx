@@ -186,6 +186,8 @@ export default function RideScreen({ ride: initial, onFinish, onCompleted, onAwa
       <View style={styles.sheet}>
         <View style={styles.handle} />
 
+        {ride.status === 'in_progress' ? <AdicionaisPassageiro rideId={ride.id} ativo /> : null}
+
         {canceled ? (
           <Text style={styles.headline}>
             {ride.status === 'canceled_by_driver' ? 'O motorista cancelou a corrida' : 'Corrida cancelada'}

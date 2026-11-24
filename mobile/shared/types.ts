@@ -132,6 +132,18 @@ export type DriverWithdrawal = {
   fail_reason?: string | null;
 };
 
+/** Adicional "por fora" cobrado pelo motorista durante a viagem (parada, espera, distância a mais). */
+export type RideExtra = {
+  id: string;
+  ride_id: string;
+  amount: number;
+  reason: string;
+  reason_label: string;
+  note?: string | null;
+  status: 'pending' | 'accepted' | 'disputed' | 'canceled';
+  created_at?: string | null;
+};
+
 /** Chamado de suporte (passageiro ou motorista falando com a equipe da marca). */
 export type SupportMessage = {
   id: string;
