@@ -71,8 +71,8 @@ em{color:var(--mut)}
 <tbody>
 <tr>
 <td>Entrar com celular + código SMS</td>
-<td>⚠️</td>
-<td>Código de 6 dígitos. O envio real de SMS <strong>ainda não está ligado</strong> (falta conta no fornecedor, ex.: Twilio). Hoje o código só funciona para contas de teste.</td>
+<td>✅</td>
+<td>Código de 6 dígitos enviado por <strong>SMS real</strong> (fornecedor smsmais.com, já ligado em produção). Contas de teste continuam com código fixo.</td>
 </tr>
 <tr>
 <td>GPS obrigatório</td>
@@ -485,7 +485,6 @@ em{color:var(--mut)}
 <h2>8. O que falta antes de lançar</h2>
 <h3>Obrigatório (bloqueia o lançamento)</h3>
 <ol>
-<li><strong>SMS real</strong>: contratar fornecedor (Twilio ou alternativa) e ligar; sem isso ninguém novo consegue entrar.</li>
 <li><strong>Conta de produção do Asaas</strong> (hoje é sandbox) e testar Pix, cartão e saque com dinheiro real.</li>
 <li><strong>Textos legais</strong>: política de privacidade, termos de uso e página de exclusão de conta — o Google Play exige; hoje estão vazios.</li>
 <li><strong>Contatos de suporte</strong> da marca (WhatsApp, e-mail, telefone): o app já os mostra na aba Ajuda, mas os campos da marca ainda estão <strong>vazios</strong> e precisam ser preenchidos no painel (Marcas).</li>
