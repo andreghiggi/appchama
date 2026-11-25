@@ -30,6 +30,13 @@ export default function WalletScreen({ onBack }: Props) {
     balance_available: number;
     prepaid_balance?: number;
     prepaid_recharge_minimum?: number;
+    min_to_operate?: number;
+    max_negative?: number;
+    withdraw_minimum?: number;
+    activated?: boolean;
+    can_operate?: boolean;
+    withdraw_hint?: string | null;
+    prepaid_debt_hint?: string | null;
     needs_cpf?: boolean;
     total_earnings: number;
     payout_pix_key?: string | null;
@@ -74,7 +81,7 @@ export default function WalletScreen({ onBack }: Props) {
 
   const gerarRecarga = async () => {
     const valor = parseFloat(rechargeAmount.replace(',', '.'));
-    const minimo = wallet?.prepaid_recharge_minimum ?? 20;
+    const minimo = wallet?.min_to_operate ?? wallet?.prepaid_recharge_minimum ?? 20;
     if (!valor || valor < minimo) {
       Alert.alert('Valor inválido', `A recarga mínima é ${formatBrl(minimo)}.`);
       return;
@@ -85,7 +92,7 @@ export default function WalletScreen({ onBack }: Props) {
     }
     setSubmitting(true);
     try {
-      saldoAntesRef.current = wallet?.prepaid_balance ?? 0;
+      saldoAntesRef.current = wallet?.balance_available ?? 0;
       const r = await api.rechargeWallet(valor, wallet?.needs_cpf ? cpf.replace(/\D/g, '') : undefined);
       setPix({ qr: r.pix_qr_code, code: r.pix_copy_paste, valor });
       if (wallet?.needs_cpf) setWallet({ ...wallet, needs_cpf: false });
@@ -102,10 +109,10 @@ export default function WalletScreen({ onBack }: Props) {
     const timer = setInterval(async () => {
       try {
         const w = await api.getDriverWallet();
-        if ((w.prepaid_balance ?? 0) > saldoAntesRef.current) {
+        if ((w.balance_available ?? 0) > saldoAntesRef.current) {
           setWallet(w);
           setPix(null);
-          Alert.alert('Pagamento recebido', `Crédito atualizado: ${formatBrl(w.prepaid_balance ?? 0)}.`);
+          Alert.alert('Pagamento recebido', `Saldo atualizado: ${formatBrl(w.balance_available ?? 0)}.`);
         }
       } catch {
         /* tenta de novo no próximo ciclo */
@@ -129,8 +136,21 @@ export default function WalletScreen({ onBack }: Props) {
 
   const withdraw = async () => {
     const value = parseFloat(amount.replace(',', '.'));
+    const minSaque = wallet?.withdraw_minimum ?? 50;
     if (!value || value <= 0) {
       Alert.alert('Valor inválido', 'Informe um valor para saque.');
+      return;
+    }
+    if (value < minSaque) {
+      Alert.alert('Saque mínimo', `O valor mínimo para saque é ${formatBrl(minSaque)}.`);
+      return;
+    }
+    if (value > (wallet?.balance_available ?? 0)) {
+      Alert.alert('Saldo insuficiente', 'O valor é maior que o saldo da carteira.');
+      return;
+    }
+    if (!wallet?.payout_pix_key) {
+      Alert.alert('Chave Pix', 'Cadastre sua chave Pix antes de pedir o saque.');
       return;
     }
 
@@ -164,22 +184,20 @@ export default function WalletScreen({ onBack }: Props) {
       <Text style={styles.title}>Carteira</Text>
 
       <View style={styles.card}>
-        <Text style={styles.label}>Crédito para aceitar corridas</Text>
-        <Text style={styles.balance}>{formatBrl(wallet?.prepaid_balance ?? 0)}</Text>
-        <Text style={styles.hint}>
-          A comissão de cada corrida é descontada daqui. Recarga mínima: {formatBrl(wallet?.prepaid_recharge_minimum ?? 20)}.
+        <Text style={styles.label}>Saldo da carteira</Text>
+        <Text style={[styles.balance, (wallet?.balance_available ?? 0) < 0 && { color: theme.ink }]}>
+          {formatBrl(wallet?.balance_available ?? 0)}
         </Text>
+        <Text style={styles.hint}>
+          A plataforma fica com 15% de cada corrida; o restante cai aqui. Para começar a aceitar corridas é preciso ter{' '}
+          {formatBrl(wallet?.min_to_operate ?? 20)} na carteira. Depois da primeira recarga o saldo pode ficar até{' '}
+          {formatBrl(wallet?.max_negative ?? 20)} negativo.
+        </Text>
+        {wallet?.prepaid_debt_hint ? <Text style={[styles.hint, { color: theme.ink, fontWeight: '700' }]}>{wallet.prepaid_debt_hint}</Text> : null}
+        <Text style={styles.hint}>Total ganho: {formatBrl(wallet?.total_earnings ?? 0)}</Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.label}>Saldo disponível para saque</Text>
-        <Text style={styles.balance}>{formatBrl(wallet?.balance_available ?? 0)}</Text>
-        <Text style={styles.hint}>
-          Total ganho: {formatBrl(wallet?.total_earnings ?? 0)}
-        </Text>
-      </View>
-
-      <Text style={styles.sectionTitle}>Recarregar crédito por Pix</Text>
+      <Text style={styles.sectionTitle}>Recarregar a carteira por Pix</Text>
       {pix ? (
         <View style={styles.card}>
           <Text style={styles.label}>Pague {formatBrl(pix.valor)} no Pix e aguarde a confirmação</Text>
@@ -251,6 +269,9 @@ export default function WalletScreen({ onBack }: Props) {
       </Pressable>
 
       <Text style={styles.sectionTitle}>Solicitar saque</Text>
+      <Text style={styles.hint}>
+        Saque mínimo: {formatBrl(wallet?.withdraw_minimum ?? 50)}. O valor vai para a chave Pix cadastrada acima.
+      </Text>
       <TextInput
         style={styles.input}
         placeholder="Valor (R$)"

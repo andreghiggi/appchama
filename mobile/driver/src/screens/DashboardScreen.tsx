@@ -299,10 +299,13 @@ export default function DashboardScreen({ onOffer, onOpenWallet, onOpenHistory, 
       ) : null}
 
       <Pressable style={styles.creditCard} onPress={onOpenWallet}>
-        <Text style={styles.statLabel}>Crédito para aceitar corridas</Text>
+        <Text style={styles.statLabel}>Saldo da carteira</Text>
         <Text style={styles.statValue}>
-          R$ {Number((dashboard as { prepaid_balance?: number } | undefined)?.prepaid_balance ?? 0).toFixed(2).replace('.', ',')}
+          R$ {Number(dashboard?.balance_available ?? 0).toFixed(2).replace('.', ',')}
         </Text>
+        {(dashboard as { prepaid_debt_hint?: string | null } | undefined)?.prepaid_debt_hint ? (
+          <Text style={styles.statLabel}>{(dashboard as { prepaid_debt_hint?: string | null }).prepaid_debt_hint}</Text>
+        ) : null}
       </Pressable>
 
       <View style={styles.statsRow}>
@@ -310,12 +313,6 @@ export default function DashboardScreen({ onOffer, onOpenWallet, onOpenHistory, 
           <Text style={styles.statLabel}>Ganhos hoje</Text>
           <Text style={styles.statValue}>
             R$ {Number(dashboard?.earnings_today ?? 0).toFixed(2).replace('.', ',')}
-          </Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statLabel}>Saldo p/ saque</Text>
-          <Text style={styles.statValue}>
-            R$ {Number(dashboard?.balance_available ?? 0).toFixed(2).replace('.', ',')}
           </Text>
         </View>
         <View style={styles.statCard}>

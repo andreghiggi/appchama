@@ -77,7 +77,7 @@ class DriverWalletController extends Controller
         abort_unless($driver, 403);
 
         $data = $request->validate([
-            'amount' => 'required|numeric|min:1',
+            'amount' => 'required|numeric|min:'.DriverWalletService::MIN_WITHDRAWAL,
         ]);
 
         $tenant = Tenant::query()->findOrFail($driver->user->tenant_id);

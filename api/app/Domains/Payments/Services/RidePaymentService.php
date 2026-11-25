@@ -290,7 +290,10 @@ class RidePaymentService
             $addToBalance = in_array($method, ['pix', 'credit_card'], true);
             $freshRide = $ride->fresh(['passenger', 'driver.user', 'city']);
             $this->walletService->creditFromRide($freshRide, $addToBalance);
-            $this->walletService->debitCommissionForRide($freshRide);
+            // Pix/cartao: os 15% ja ficaram retidos (so o liquido cai na carteira). Direto: o motorista ficou com o dinheiro, entao os 15% saem da carteira.
+            if (! $addToBalance) {
+                $this->walletService->debitCommissionForRide($freshRide);
+            }
 
             return $ride->fresh(['passenger', 'driver.user', 'city']);
         });
