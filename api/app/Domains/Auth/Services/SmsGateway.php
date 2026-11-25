@@ -9,6 +9,7 @@ use RuntimeException;
  * Envio de SMS. O fornecedor e escolhido por SMS_PROVIDER no .env, sem mexer no codigo:
  *  - log    : nao envia nada (desenvolvimento e contas de teste)
  *  - twilio : Twilio (Messages API). Exige TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN e TWILIO_FROM (numero) ou TWILIO_MESSAGING_SERVICE_SID.
+ *  - smsmais: smsmais.com (POST /api/enviar_sms.php, Bearer). Exige SMSMAIS_TOKEN.
  * Para um fornecedor novo basta acrescentar um metodo e um "case" abaixo.
  */
 class SmsGateway
@@ -30,6 +31,7 @@ class SmsGateway
         match ($this->provider()) {
             'log' => null,
             'twilio' => $this->twilio($phone, $text),
+            'smsmais' => $this->smsmais($phone, $text),
             default => throw new RuntimeException('Fornecedor de SMS desconhecido: '.$this->provider()),
         };
     }
@@ -43,6 +45,27 @@ class SmsGateway
         }
 
         return '+'.$d;
+    }
+
+    private function smsmais(string $phone, string $text): void
+    {
+        $token = (string) config('services.sms.smsmais.token');
+        if ($token === '') {
+            throw new RuntimeException('smsmais sem token (SMSMAIS_TOKEN).');
+        }
+
+        // so digitos, com 55 na frente; mensagem limitada a 160 caracteres
+        $to = ltrim(self::e164($phone), '+');
+        $r = Http::withToken($token)->acceptJson()->asJson()->timeout(10)
+            ->post(rtrim((string) config('services.sms.smsmais.url'), '/').'/api/enviar_sms.php', [
+                'to' => $to,
+                'message' => mb_substr($text, 0, 160),
+            ]);
+
+        if (! $r->successful() || $r->json('sucesso') === false) {
+            // nunca grava token nem telefone inteiro
+            throw new RuntimeException('smsmais recusou o envio ('.$r->status().'): '.($r->json('error') ?? $r->json('status') ?? 'sem detalhe'));
+        }
     }
 
     private function twilio(string $phone, string $text): void

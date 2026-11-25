@@ -40,6 +40,11 @@ return [
         // Devolver o codigo na resposta da API so em desenvolvimento. Em producao fica DESLIGADO.
         'expose_debug_code' => (bool) env('OTP_EXPOSE_DEBUG_CODE', false),
         // Twilio (so usado com SMS_PROVIDER=twilio). Os valores ficam no .env do servidor, nunca no Git.
+        // smsmais.com (so usado com SMS_PROVIDER=smsmais). O token fica no .env do servidor.
+        'smsmais' => [
+            'token' => env('SMSMAIS_TOKEN'),
+            'url' => env('SMSMAIS_URL', 'https://smsmais.com'),
+        ],
         'twilio' => [
             'account_sid' => env('TWILIO_ACCOUNT_SID'),
             'auth_token' => env('TWILIO_AUTH_TOKEN'),
