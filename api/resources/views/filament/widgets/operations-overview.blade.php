@@ -6,112 +6,99 @@
             ], escape: false)
     "
 >
-    <x-filament::section heading="Operação ao vivo">
-        <div class="grid gap-6 xl:grid-cols-2">
-            <div>
-                <h3 class="mb-3 text-sm font-semibold" style="color: var(--fi-body-text-color, inherit);">
-                    Motoristas em corrida ({{ count($driversInRide) }})
-                </h3>
+    @include('filament.widgets.partials.ac-ui')
 
-                @if (count($driversInRide) === 0)
-                    <div class="rounded-xl p-4 text-sm" style="background: var(--fi-section-bg, rgba(128,128,128,.08)); color: var(--fi-body-text-color, inherit); opacity: .75;">
-                        Nenhum motorista com corrida em andamento.
-                    </div>
-                @else
-                    <div class="space-y-3">
-                        @foreach ($driversInRide as $driver)
-                            <div
-                                class="rounded-xl p-4"
-                                style="border: 1px solid rgba(128,128,128,.25); background: var(--fi-section-bg, transparent);"
-                            >
-                                <div class="mb-2 flex items-center justify-between gap-3">
-                                    <span class="text-base font-semibold" style="color: var(--fi-body-text-color, inherit);">
-                                        🚗 {{ $driver['name'] }}
-                                    </span>
-                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium" style="background: rgba(255,159,28,.15); color: #ff9f1c;">
-                                        {{ $driver['status'] }}
-                                    </span>
-                                </div>
-                                <div class="grid gap-2 text-sm sm:grid-cols-2" style="color: var(--fi-body-text-color, inherit); opacity: .9;">
-                                    <div><span style="opacity:.65;">Telefone:</span> {{ $driver['phone'] }}</div>
-                                    <div><span style="opacity:.65;">Cidade:</span> {{ $driver['city'] }}</div>
-                                    <div class="sm:col-span-2"><span style="opacity:.65;">Passageiro:</span> {{ $driver['passenger'] }}</div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-
-            <div>
-                <h3 class="mb-3 text-sm font-semibold" style="color: var(--fi-body-text-color, inherit);">
-                    Corridas ativas ({{ count($activeRides) }})
-                </h3>
-
-                @if (count($activeRides) === 0)
-                    <div class="rounded-xl p-4 text-sm" style="background: var(--fi-section-bg, rgba(128,128,128,.08)); color: var(--fi-body-text-color, inherit); opacity: .75;">
-                        Nenhuma corrida em andamento.
-                    </div>
-                @else
-                    <div class="space-y-3">
-                        @foreach ($activeRides as $ride)
-                            <div
-                                class="rounded-xl p-4"
-                                style="border: 1px solid rgba(128,128,128,.25); background: var(--fi-section-bg, transparent);"
-                            >
-                                <div class="mb-2 flex items-center justify-between gap-3">
-                                    <span class="font-mono text-xs" style="opacity:.65;">#{{ $ride['code'] }}</span>
-                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium" style="background: rgba(15,158,141,.15); color: #0f9e8d;">
-                                        {{ $ride['status'] }}
-                                    </span>
-                                </div>
-                                <div class="grid gap-2 text-sm sm:grid-cols-2" style="color: var(--fi-body-text-color, inherit); opacity: .9;">
-                                    <div><span style="opacity:.65;">Passageiro:</span> {{ $ride['passenger'] }}</div>
-                                    <div><span style="opacity:.65;">Tel. passageiro:</span> {{ $ride['passenger_phone'] }}</div>
-                                    <div><span style="opacity:.65;">Motorista:</span> {{ $ride['driver'] }}</div>
-                                    <div><span style="opacity:.65;">Tel. motorista:</span> {{ $ride['driver_phone'] }}</div>
-                                    <div><span style="opacity:.65;">Cidade:</span> {{ $ride['city'] }}</div>
-                                    <div><span style="opacity:.65;">Estimativa:</span> {{ $ride['fare'] }}</div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
-            </div>
-        </div>
-
-        <div class="mt-6">
-            <h3 class="mb-3 text-sm font-semibold" style="color: var(--fi-body-text-color, inherit);">
-                Aguardando pagamento ({{ count($awaitingPayment) }})
-            </h3>
-
-            @if (count($awaitingPayment) === 0)
-                <div class="rounded-xl p-4 text-sm" style="background: var(--fi-section-bg, rgba(128,128,128,.08)); color: var(--fi-body-text-color, inherit); opacity: .75;">
-                    Nenhuma corrida aguardando pagamento.
+    <x-filament::section heading="Operação ao vivo" description="Atualiza sozinho. Verde = em andamento, âmbar = precisa de atenção.">
+        <div class="ac-ui">
+            <div class="ac-kpis">
+                <div class="ac-kpi {{ count($driversInRide) > 0 ? 'is-on' : '' }}">
+                    <span class="ac-kpi-n">{{ count($driversInRide) }}</span>
+                    <span class="ac-kpi-l">Motoristas em corrida</span>
                 </div>
-            @else
-                <div class="grid gap-3 md:grid-cols-2">
-                    @foreach ($awaitingPayment as $ride)
-                        <div
-                            class="rounded-xl p-4"
-                            style="border: 1px solid rgba(128,128,128,.25); background: var(--fi-section-bg, transparent);"
-                        >
-                            <div class="mb-2 flex items-center justify-between gap-3">
-                                <span class="font-mono text-xs" style="opacity:.65;">#{{ $ride['code'] }}</span>
-                                <span class="rounded-full px-2 py-0.5 text-xs font-medium" style="background: rgba(255,193,7,.15); color: #b45309;">
-                                    Aguardando pagamento
-                                </span>
-                            </div>
-                            <div class="grid gap-2 text-sm sm:grid-cols-2" style="color: var(--fi-body-text-color, inherit); opacity: .9;">
-                                <div><span style="opacity:.65;">Passageiro:</span> {{ $ride['passenger'] }}</div>
-                                <div><span style="opacity:.65;">Motorista:</span> {{ $ride['driver'] }}</div>
-                                <div><span style="opacity:.65;">Valor:</span> {{ $ride['fare'] }}</div>
-                                <div><span style="opacity:.65;">Líquido motorista:</span> {{ $ride['net'] }}</div>
-                            </div>
+                <div class="ac-kpi {{ count($activeRides) > 0 ? 'is-on' : '' }}">
+                    <span class="ac-kpi-n">{{ count($activeRides) }}</span>
+                    <span class="ac-kpi-l">Corridas ativas</span>
+                </div>
+                <div class="ac-kpi {{ count($awaitingPayment) > 0 ? 'is-warn' : '' }}">
+                    <span class="ac-kpi-n">{{ count($awaitingPayment) }}</span>
+                    <span class="ac-kpi-l">Aguardando pagamento</span>
+                </div>
+            </div>
+
+            <div class="ac-cols">
+                <div>
+                    <h3 class="ac-col-head">🚗 Motoristas em corrida <span class="ac-count">{{ count($driversInRide) }}</span></h3>
+                    @if (count($driversInRide) === 0)
+                        <div class="ac-empty"><span class="ac-empty-i">😴</span> Nenhum motorista com corrida em andamento.</div>
+                    @else
+                        <div class="ac-list">
+                            @foreach ($driversInRide as $driver)
+                                <div class="ac-card is-teal">
+                                    <div class="ac-card-top">
+                                        <span class="ac-title">{{ $driver['name'] }}</span>
+                                        <span class="ac-pill is-teal">{{ $driver['status'] }}</span>
+                                    </div>
+                                    <div class="ac-grid">
+                                        <div class="ac-f"><span class="ac-f-l">Telefone</span><span class="ac-f-v">{{ $driver['phone'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Cidade</span><span class="ac-f-v">{{ $driver['city'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Passageiro</span><span class="ac-f-v">{{ $driver['passenger'] }}</span></div>
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
-                    @endforeach
+                    @endif
                 </div>
-            @endif
+
+                <div>
+                    <h3 class="ac-col-head">📍 Corridas ativas <span class="ac-count">{{ count($activeRides) }}</span></h3>
+                    @if (count($activeRides) === 0)
+                        <div class="ac-empty"><span class="ac-empty-i">🛣️</span> Nenhuma corrida em andamento.</div>
+                    @else
+                        <div class="ac-list">
+                            @foreach ($activeRides as $ride)
+                                <div class="ac-card is-teal">
+                                    <div class="ac-card-top">
+                                        <span class="ac-code">#{{ $ride['code'] }}</span>
+                                        <span class="ac-pill is-teal">{{ $ride['status'] }}</span>
+                                    </div>
+                                    <div class="ac-grid">
+                                        <div class="ac-f"><span class="ac-f-l">Passageiro</span><span class="ac-f-v">{{ $ride['passenger'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Tel. passageiro</span><span class="ac-f-v">{{ $ride['passenger_phone'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Motorista</span><span class="ac-f-v">{{ $ride['driver'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Tel. motorista</span><span class="ac-f-v">{{ $ride['driver_phone'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Cidade</span><span class="ac-f-v">{{ $ride['city'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Estimativa</span><span class="ac-f-v is-money">{{ $ride['fare'] }}</span></div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
+                <div>
+                    <h3 class="ac-col-head">💳 Aguardando pagamento <span class="ac-count">{{ count($awaitingPayment) }}</span></h3>
+                    @if (count($awaitingPayment) === 0)
+                        <div class="ac-empty"><span class="ac-empty-i">✅</span> Nenhuma corrida aguardando pagamento.</div>
+                    @else
+                        <div class="ac-list">
+                            @foreach ($awaitingPayment as $ride)
+                                <div class="ac-card is-amber">
+                                    <div class="ac-card-top">
+                                        <span class="ac-code">#{{ $ride['code'] }}</span>
+                                        <span class="ac-pill is-amber">Aguardando pagamento</span>
+                                    </div>
+                                    <div class="ac-grid">
+                                        <div class="ac-f"><span class="ac-f-l">Passageiro</span><span class="ac-f-v">{{ $ride['passenger'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Motorista</span><span class="ac-f-v">{{ $ride['driver'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Valor</span><span class="ac-f-v is-money">{{ $ride['fare'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Líquido motorista</span><span class="ac-f-v is-money">{{ $ride['net'] }}</span></div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            </div>
         </div>
     </x-filament::section>
 </x-filament-widgets::widget>

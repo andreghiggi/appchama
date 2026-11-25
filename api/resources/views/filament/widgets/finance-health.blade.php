@@ -6,78 +6,69 @@
             ], escape: false)
     "
 >
-    <x-filament::section heading="Saúde financeira">
-        <div class="grid gap-6 xl:grid-cols-2">
-            <div>
-                <h3 class="mb-3 text-sm font-semibold" style="color: var(--fi-body-text-color, inherit);">
-                    Carteiras negativas ({{ count($negativeWallets) }})
-                </h3>
+    @include('filament.widgets.partials.ac-ui')
 
-                @if (count($negativeWallets) === 0)
-                    <div class="rounded-xl p-4 text-sm" style="background: var(--fi-section-bg, rgba(128,128,128,.08)); color: var(--fi-body-text-color, inherit); opacity: .75;">
-                        Nenhum motorista com saldo negativo.
-                    </div>
-                @else
-                    <div class="space-y-3">
-                        @foreach ($negativeWallets as $wallet)
-                            <div
-                                class="rounded-xl p-4"
-                                style="border: 1px solid rgba(128,128,128,.25); background: var(--fi-section-bg, transparent);"
-                            >
-                                <div class="mb-2 flex items-center justify-between gap-3">
-                                    <span class="text-base font-semibold" style="color: var(--fi-body-text-color, inherit);">
-                                        {{ $wallet['name'] }}
-                                    </span>
-                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium" style="background: rgba(220,38,38,.15); color: #dc2626;">
-                                        {{ $wallet['balance'] }}
-                                    </span>
-                                </div>
-                                <div class="text-sm" style="color: var(--fi-body-text-color, inherit); opacity: .9;">
-                                    <span style="opacity:.65;">Telefone:</span> {{ $wallet['phone'] }}
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
+    <x-filament::section heading="Saúde financeira" description="Vermelho = precisa de atenção agora.">
+        <div class="ac-ui">
+            <div class="ac-kpis">
+                <div class="ac-kpi {{ count($negativeWallets) > 0 ? 'is-bad' : '' }}">
+                    <span class="ac-kpi-n">{{ count($negativeWallets) }}</span>
+                    <span class="ac-kpi-l">Carteiras negativas</span>
+                </div>
+                <div class="ac-kpi {{ count($pendingPayments) > 0 ? 'is-warn' : '' }}">
+                    <span class="ac-kpi-n">{{ count($pendingPayments) }}</span>
+                    <span class="ac-kpi-l">Pagamentos pendentes</span>
+                </div>
             </div>
 
-            <div>
-                <h3 class="mb-3 text-sm font-semibold" style="color: var(--fi-body-text-color, inherit);">
-                    Pagamentos pendentes ({{ count($pendingPayments) }})
-                </h3>
+            <div class="ac-cols">
+                <div>
+                    <h3 class="ac-col-head">👛 Carteiras negativas <span class="ac-count">{{ count($negativeWallets) }}</span></h3>
+                    @if (count($negativeWallets) === 0)
+                        <div class="ac-empty"><span class="ac-empty-i">✅</span> Nenhum motorista com saldo negativo.</div>
+                    @else
+                        <div class="ac-list">
+                            @foreach ($negativeWallets as $wallet)
+                                <div class="ac-card is-red">
+                                    <div class="ac-card-top">
+                                        <span class="ac-title">{{ $wallet['name'] }}</span>
+                                        <span class="ac-pill is-red">{{ $wallet['balance'] }}</span>
+                                    </div>
+                                    <div class="ac-grid">
+                                        <div class="ac-f"><span class="ac-f-l">Telefone</span><span class="ac-f-v">{{ $wallet['phone'] }}</span></div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
 
-                @if (count($pendingPayments) === 0)
-                    <div class="rounded-xl p-4 text-sm" style="background: var(--fi-section-bg, rgba(128,128,128,.08)); color: var(--fi-body-text-color, inherit); opacity: .75;">
-                        Nenhum pagamento Pix/cartão pendente.
-                    </div>
-                @else
-                    <div class="space-y-3">
-                        @foreach ($pendingPayments as $payment)
-                            <div
-                                class="rounded-xl p-4"
-                                style="border: 1px solid rgba(128,128,128,.25); background: var(--fi-section-bg, transparent);"
-                            >
-                                <div class="mb-2 flex items-center justify-between gap-3">
-                                    <span class="font-mono text-xs" style="opacity:.65;">#{{ $payment['code'] }}</span>
-                                    @if ($payment['expiring_soon'])
-                                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" style="background: rgba(220,38,38,.15); color: #dc2626;">
-                                            {{ $payment['age_days'] }}d — expira em breve
-                                        </span>
-                                    @else
-                                        <span class="rounded-full px-2 py-0.5 text-xs font-medium" style="background: rgba(255,193,7,.15); color: #b45309;">
-                                            {{ $payment['age_days'] }}d
-                                        </span>
-                                    @endif
+                <div>
+                    <h3 class="ac-col-head">⏳ Pagamentos pendentes <span class="ac-count">{{ count($pendingPayments) }}</span></h3>
+                    @if (count($pendingPayments) === 0)
+                        <div class="ac-empty"><span class="ac-empty-i">✅</span> Nenhum pagamento Pix/cartão pendente.</div>
+                    @else
+                        <div class="ac-list">
+                            @foreach ($pendingPayments as $payment)
+                                <div class="ac-card {{ $payment['expiring_soon'] ? 'is-red' : 'is-amber' }}">
+                                    <div class="ac-card-top">
+                                        <span class="ac-code">#{{ $payment['code'] }}</span>
+                                        @if ($payment['expiring_soon'])
+                                            <span class="ac-pill is-red">{{ $payment['age_days'] }}d — expira em breve</span>
+                                        @else
+                                            <span class="ac-pill is-amber">{{ $payment['age_days'] }}d</span>
+                                        @endif
+                                    </div>
+                                    <div class="ac-grid">
+                                        <div class="ac-f"><span class="ac-f-l">Método</span><span class="ac-f-v">{{ $payment['method'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Passageiro</span><span class="ac-f-v">{{ $payment['passenger'] }}</span></div>
+                                        <div class="ac-f"><span class="ac-f-l">Motorista</span><span class="ac-f-v">{{ $payment['driver'] }}</span></div>
+                                    </div>
                                 </div>
-                                <div class="grid gap-2 text-sm sm:grid-cols-2" style="color: var(--fi-body-text-color, inherit); opacity: .9;">
-                                    <div><span style="opacity:.65;">Método:</span> {{ $payment['method'] }}</div>
-                                    <div><span style="opacity:.65;">Passageiro:</span> {{ $payment['passenger'] }}</div>
-                                    <div class="sm:col-span-2"><span style="opacity:.65;">Motorista:</span> {{ $payment['driver'] }}</div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endif
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
             </div>
         </div>
     </x-filament::section>
