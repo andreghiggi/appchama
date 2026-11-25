@@ -25,8 +25,8 @@ class DriverWithdrawalService
             abort(422, 'Saldo insuficiente.');
         }
 
-        if ($amount < 1) {
-            abort(422, 'Valor mínimo de saque: R$ 1,00.');
+        if ($amount < DriverWalletService::MIN_WITHDRAWAL) {
+            abort(422, 'Valor mínimo de saque: R$ '.number_format(DriverWalletService::MIN_WITHDRAWAL, 2, ',', '.').'.');
         }
 
         if (DriverWithdrawal::query()

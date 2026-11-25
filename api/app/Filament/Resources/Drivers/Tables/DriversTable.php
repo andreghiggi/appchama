@@ -77,10 +77,10 @@ class DriversTable
                     ->badge()
                     ->formatStateUsing(fn (?string $state) => StatusLabels::subscription($state)),
                 TextColumn::make('saldo_comissao')
-                    ->label('Saldo p/ comissão')
-                    ->getStateUsing(fn ($record) => 'R$ '.number_format((float) (DriverWallet::withoutGlobalScopes()->where('driver_id', $record->user_id)->value('prepaid_balance') ?? 0), 2, ',', '.'))
+                    ->label('Saldo da carteira')
+                    ->getStateUsing(fn ($record) => 'R$ '.number_format((float) (DriverWallet::withoutGlobalScopes()->where('driver_id', $record->user_id)->value('balance_available') ?? 0), 2, ',', '.'))
                     ->badge()
-                    ->color(fn ($record) => (float) (DriverWallet::withoutGlobalScopes()->where('driver_id', $record->user_id)->value('prepaid_balance') ?? 0) >= 20 ? 'success' : 'danger'),
+                    ->color(fn ($record) => (float) (DriverWallet::withoutGlobalScopes()->where('driver_id', $record->user_id)->value('balance_available') ?? 0) >= -20 ? 'success' : 'danger'),
                 IconColumn::make('online')->label('Online')->boolean(),
                 TextColumn::make('rating_avg')->label('Nota'),
             ])
@@ -157,15 +157,15 @@ class DriversTable
                     ->label('Adicionar crédito')
                     ->icon('heroicon-o-banknotes')
                     ->color('warning')
-                    ->modalHeading('Adicionar crédito na carteira de comissão')
-                    ->modalDescription('O motorista só aceita corridas se tiver saldo para a comissão. Este valor entra na hora e fica registrado no extrato dele.')
+                    ->modalHeading('Adicionar crédito na carteira')
+                    ->modalDescription('O motorista precisa de saldo para operar (a primeira recarga libera até R\$ 20 negativo). Este valor entra na hora e fica registrado no extrato dele.')
                     ->schema(self::creditForm())
                     ->action(function ($record, array $data): void {
                         $carteira = app(DriverWalletService::class)->creditManual((string) $record->user_id, (float) $data['amount'], $data['motivo'] ?? null, auth()->user()?->name);
 
                         Notification::make()
                             ->title('Crédito adicionado')
-                            ->body(sprintf('%s agora tem R$ %s de saldo para comissão.', $record->user?->name, number_format((float) $carteira->prepaid_balance, 2, ',', '.')))
+                            ->body(sprintf('%s agora tem R$ %s na carteira.', $record->user?->name, number_format((float) $carteira->balance_available, 2, ',', '.')))
                             ->success()
                             ->send();
                     }),

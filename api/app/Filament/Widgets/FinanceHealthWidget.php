@@ -24,14 +24,14 @@ class FinanceHealthWidget extends Widget
     {
         $negativeWallets = DriverWallet::query()
             ->with('driver.user:id,name,phone')
-            ->where('prepaid_balance', '<', 0)
-            ->orderBy('prepaid_balance')
+            ->where('balance_available', '<', 0)
+            ->orderBy('balance_available')
             ->limit(20)
             ->get()
             ->map(fn (DriverWallet $wallet) => [
                 'name' => $wallet->driver?->user?->name ?? '—',
                 'phone' => $wallet->driver?->user?->phone ?? '—',
-                'balance' => 'R$ '.number_format((float) $wallet->prepaid_balance, 2, ',', '.'),
+                'balance' => 'R$ '.number_format((float) $wallet->balance_available, 2, ',', '.'),
             ])
             ->all();
 

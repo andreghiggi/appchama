@@ -62,7 +62,7 @@ try {
     $drv = Driver::query()->withoutGlobalScopes()->where('user_id', $drvUser->id)->first();
     app(\App\Domains\Drivers\Services\DriverRegistrationCodeService::class)->approveAppDriver($drv);
     $w = app(\App\Domains\Payments\Services\DriverWalletService::class)->ensureWallet($drv->fresh());
-    $w->forceFill(['prepaid_balance' => 50])->save();
+    $w->forceFill(['balance_available' => 50, 'activated_at' => now()])->save();
     [$s, $j] = $api('POST', '/auth/driver/login', ['phone' => '51977000001', 'tenant_slug' => 'vaide55', 'password' => 'segredo123']);
     $check('motorista aprovado entra com telefone e senha', $s === 200 && ! empty($j['token']), "status=$s");
     $tokM = $j['token'] ?? null;

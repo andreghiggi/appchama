@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\DB;
 
 class DriverWalletService
 {
+    /** Saldo minimo para comecar a operar (antes da primeira recarga). */
+    public const MIN_TO_OPERATE = 20.0;
+    /** Depois da primeira recarga o saldo pode ficar negativo ate este valor. */
+    public const MAX_NEGATIVE = 20.0;
+    public const MIN_WITHDRAWAL = 50.0;
+
     public function ensureWallet(Driver $driver): DriverWallet
     {
         return DriverWallet::query()->firstOrCreate(
@@ -57,39 +63,51 @@ class DriverWalletService
             ->exists();
 
         $balance = (float) $wallet->balance_available;
-        $prepaidBalance = (float) $wallet->prepaid_balance;
+        $activated = $wallet->activated_at !== null;
+        $canOperate = $this->canOperate($wallet);
         $withdrawHint = null;
-        $prepaidDebtHint = null;
+        $debtHint = null;
 
-        if ($prepaidBalance < 0) {
-            $prepaidDebtHint = sprintf(
-                'Sua carteira de comissão está negativa (R$ %s). A comissão da última corrida foi maior que o saldo disponível. Recarregue para continuar aceitando corridas.',
-                number_format(abs($prepaidBalance), 2, ',', '.'),
-            );
+        if (! $canOperate) {
+            $debtHint = $activated
+                ? sprintf('Seu saldo está em R$ %s. Recarregue para voltar a aceitar corridas (o limite negativo é de R$ %s).', number_format($balance, 2, ',', '.'), number_format(self::MAX_NEGATIVE, 2, ',', '.'))
+                : sprintf('Para começar a aceitar corridas, faça sua primeira recarga (mínimo R$ %s).', number_format(self::MIN_TO_OPERATE, 2, ',', '.'));
         }
 
         if ($hasProcessingWithdrawal) {
             $withdrawHint = 'Há um saque em processamento. Aguarde a conclusão antes de solicitar outro.';
-        } elseif ($balance < 1 && $directEarnings > 0 && $pendingPixRides === 0) {
-            $withdrawHint = 'Os valores recebidos em pagamento direto (dinheiro/Pix na hora) já ficaram com você e não entram no saldo para saque. Só é possível sacar pagamentos feitos pelo passageiro via Pix ou cartão no app.';
-        } elseif ($balance < 1 && $pendingPixRides > 0) {
-            $withdrawHint = 'Há corrida(s) aguardando pagamento do passageiro. O saldo para saque será liberado após a confirmação do Pix ou cartão.';
-        } elseif ($balance < 1) {
-            $withdrawHint = 'O saldo para saque é liberado quando o passageiro paga via Pix ou cartão pelo app.';
+        } elseif ($balance < self::MIN_WITHDRAWAL) {
+            $withdrawHint = sprintf('O saque mínimo é de R$ %s.', number_format(self::MIN_WITHDRAWAL, 2, ',', '.'));
         }
 
         return [
             'balance_available' => $balance,
-            'prepaid_balance' => (float) $wallet->prepaid_balance,
-            'prepaid_recharge_minimum' => 20.0,
+            // compatibilidade com apps antigos: a carteira agora e uma so
+            'prepaid_balance' => $balance,
+            'prepaid_recharge_minimum' => self::MIN_TO_OPERATE,
+            'min_to_operate' => self::MIN_TO_OPERATE,
+            'max_negative' => self::MAX_NEGATIVE,
+            'withdraw_minimum' => self::MIN_WITHDRAWAL,
+            'activated' => $activated,
+            'can_operate' => $canOperate,
             'total_earnings' => (float) $wallet->total_earnings,
             'direct_earnings' => round($directEarnings, 2),
             'app_balance_earnings' => round($appBalanceEarnings, 2),
             'pending_pix_rides' => $pendingPixRides,
             'has_processing_withdrawal' => $hasProcessingWithdrawal,
             'withdraw_hint' => $withdrawHint,
-            'prepaid_debt_hint' => $prepaidDebtHint,
+            'prepaid_debt_hint' => $debtHint,
         ];
+    }
+
+    /** Antes da primeira recarga: saldo >= 20. Depois: saldo >= -20. */
+    public function canOperate(DriverWallet $wallet): bool
+    {
+        $saldo = (float) $wallet->balance_available;
+
+        return $wallet->activated_at !== null
+            ? $saldo >= -self::MAX_NEGATIVE
+            : $saldo >= self::MIN_TO_OPERATE;
     }
 
     public function creditFromRide(Ride $ride, bool $addToAvailableBalance): DriverWallet
@@ -123,7 +141,7 @@ class DriverWalletService
                 'type' => 'ride_credit',
                 'amount' => $net,
                 'balance_after' => $wallet->balance_available,
-                'prepaid_balance_after' => $wallet->prepaid_balance,
+                'prepaid_balance_after' => 0,
                 'ride_id' => $ride->id,
                 'description' => $addToAvailableBalance
                     ? 'Crédito corrida #'.substr($ride->id, 0, 8)
@@ -135,16 +153,16 @@ class DriverWalletService
         });
     }
 
-    public function assertCanAcceptRide(Driver $driver, float $grossFare, float $commissionPct): void
+    public function assertCanAcceptRide(Driver $driver, float $grossFare = 0, float $commissionPct = 0): void
     {
         $wallet = $this->ensureWallet($driver);
-        $fee = round(max(0, $grossFare) * max(0, min(100, $commissionPct)) / 100, 2);
-        $saldo = (float) $wallet->prepaid_balance;
-        abort_unless($saldo >= $fee, 422, sprintf(
-            'Saldo da carteira insuficiente para a comissão desta corrida (comissão R$ %s, seu saldo R$ %s). Recarregue na aba Carteira (mínimo R$ 20,00) ou peça crédito ao suporte.',
-            number_format($fee, 2, ',', '.'),
-            number_format($saldo, 2, ',', '.'),
-        ));
+        if ($this->canOperate($wallet)) {
+            return;
+        }
+        $saldo = (float) $wallet->balance_available;
+        abort(422, $wallet->activated_at !== null
+            ? sprintf('Seu saldo da carteira está em R$ %s (limite negativo R$ %s). Recarregue na aba Carteira para voltar a aceitar corridas.', number_format($saldo, 2, ',', '.'), number_format(self::MAX_NEGATIVE, 2, ',', '.'))
+            : sprintf('Para aceitar corridas, faça sua primeira recarga na aba Carteira (mínimo R$ %s).', number_format(self::MIN_TO_OPERATE, 2, ',', '.')));
     }
 
     public function debitCommissionForRide(Ride $ride): DriverWallet
@@ -156,15 +174,14 @@ class DriverWalletService
             $existing = DriverWalletTransaction::query()->where('ride_id', $ride->id)->where('type', 'commission_debit')->first();
             if ($existing) return $this->ensureWallet($driver);
             $wallet = DriverWallet::query()->lockForUpdate()->findOrFail($driver->user_id);
-            // Nunca aborta por saldo insuficiente aqui: a corrida já foi paga pelo passageiro
-            // nesse ponto, e travar essa transação desfaria o pagamento já recebido. O saldo
-            // fica negativo e o motorista é bloqueado de aceitar novas corridas até recarregar
-            // (assertCanAcceptRide).
-            $wallet->prepaid_balance = round((float) $wallet->prepaid_balance - $fee, 2);
+            // Usado no pagamento direto (o motorista ficou com o dinheiro): os 15% saem da carteira.
+            // Nunca aborta por saldo insuficiente: a corrida já foi paga e travar desfaria o pagamento.
+            // O saldo pode ficar negativo; novas corridas só dentro do limite (canOperate).
+            $wallet->balance_available = round((float) $wallet->balance_available - $fee, 2);
             $wallet->save();
             DriverWalletTransaction::query()->create([
                 'driver_id' => $driver->user_id, 'type' => 'commission_debit', 'amount' => -$fee,
-                'balance_after' => $wallet->balance_available, 'prepaid_balance_after' => $wallet->prepaid_balance,
+                'balance_after' => $wallet->balance_available, 'prepaid_balance_after' => 0,
                 'ride_id' => $ride->id, 'description' => 'Comissão '.($ride->tenant?->name ?: 'da plataforma').' de '.rtrim(rtrim(number_format((float) ($ride->tenant?->platform_commission_pct ?? 15), 2, '.', ''), '0'), '.').'% corrida #'.substr($ride->id, 0, 8), 'created_at' => now(),
             ]);
             return $wallet->fresh();
@@ -179,11 +196,12 @@ class DriverWalletService
                 ['driver_id' => $driverId], ['balance_available' => 0, 'prepaid_balance' => 0, 'total_earnings' => 0]
             );
             if (DriverWalletTransaction::query()->where('description', 'like', '%recarga #'.substr($rechargeId, 0, 8).'%')->exists()) return $wallet;
-            $wallet->prepaid_balance = round((float) $wallet->prepaid_balance + $amount, 2);
+            $wallet->balance_available = round((float) $wallet->balance_available + $amount, 2);
+            $wallet->activated_at ??= now();
             $wallet->save();
             DriverWalletTransaction::query()->create([
                 'driver_id' => $driverId, 'type' => 'wallet_recharge', 'amount' => $amount,
-                'balance_after' => $wallet->balance_available, 'prepaid_balance_after' => $wallet->prepaid_balance,
+                'balance_after' => $wallet->balance_available, 'prepaid_balance_after' => 0,
                 'description' => 'Recarga carteira #'.substr($rechargeId, 0, 8), 'created_at' => now(),
             ]);
             return $wallet->fresh();
@@ -204,11 +222,12 @@ class DriverWalletService
             abort_unless($tenantId, 404, 'Motorista não encontrado.');
             $wallet = DriverWallet::withoutGlobalScopes()->lockForUpdate()->where('driver_id', $driverId)->first()
                 ?? DriverWallet::withoutGlobalScopes()->forceCreate(['driver_id' => $driverId, 'tenant_id' => $tenantId, 'balance_available' => 0, 'prepaid_balance' => 0, 'total_earnings' => 0]);
-            $wallet->prepaid_balance = round((float) $wallet->prepaid_balance + $amount, 2);
+            $wallet->balance_available = round((float) $wallet->balance_available + $amount, 2);
+            $wallet->activated_at ??= now();
             $wallet->save();
             DriverWalletTransaction::withoutGlobalScopes()->forceCreate([
                 'driver_id' => $driverId, 'tenant_id' => $tenantId, 'type' => 'manual_credit', 'amount' => round($amount, 2),
-                'balance_after' => $wallet->balance_available, 'prepaid_balance_after' => $wallet->prepaid_balance,
+                'balance_after' => $wallet->balance_available, 'prepaid_balance_after' => 0,
                 'description' => mb_substr('Crédito manual (admin'.($feitoPor ? ': '.$feitoPor : '').')'.($motivo ? ' - '.$motivo : ''), 0, 250),
                 'created_at' => now(),
             ]);

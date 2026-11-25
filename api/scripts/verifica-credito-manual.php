@@ -16,14 +16,14 @@ try {
     $tenant = Tenant::query()->findOrFail($driver->tenant_id);
     $id = (string) $driver->user_id;
     $svc = app(DriverWalletService::class);
-    $antes = (float) (DriverWallet::withoutGlobalScopes()->where('driver_id', $id)->value('prepaid_balance') ?? 0);
+    $antes = (float) (DriverWallet::withoutGlobalScopes()->where('driver_id', $id)->value('balance_available') ?? 0);
 
     // simula o admin vendo OUTRA marca no painel: a carteira do motorista tem de ser achada mesmo assim
     $outra = Tenant::query()->where('id', '!=', $tenant->id)->first();
     if ($outra) { app()->instance('currentTenantId', $outra->id); }
 
     $w = $svc->creditManual($id, 25.50, 'teste', 'Admin Teste');
-    $check('credito soma ao saldo de comissao', abs((float) $w->prepaid_balance - ($antes + 25.50)) < 0.001, [$antes, $w->prepaid_balance]);
+    $check('credito soma ao saldo de comissao', abs((float) $w->balance_available - ($antes + 25.50)) < 0.001, [$antes, $w->balance_available]);
     $check('nao criou uma 2a carteira para o motorista', DriverWallet::withoutGlobalScopes()->where('driver_id', $id)->count() === 1);
     $tx = DriverWalletTransaction::withoutGlobalScopes()->where('driver_id', $id)->where('type', 'manual_credit')->latest('created_at')->first();
     $check('extrato registra tipo, valor, motivo e quem fez', $tx && (float) $tx->amount === 25.5 && str_contains((string) $tx->description, 'Admin Teste') && str_contains((string) $tx->description, 'teste'), $tx);

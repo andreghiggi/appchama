@@ -120,6 +120,13 @@ export type DriverWalletInfo = {
   balance_available: number;
   prepaid_balance?: number;
   prepaid_recharge_minimum?: number;
+  min_to_operate?: number;
+  max_negative?: number;
+  withdraw_minimum?: number;
+  activated?: boolean;
+  can_operate?: boolean;
+  withdraw_hint?: string | null;
+  prepaid_debt_hint?: string | null;
   total_earnings: number;
   payout_pix_key?: string | null;
   payout_pix_key_type?: string | null;

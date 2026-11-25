@@ -25,6 +25,7 @@ class PrepaidWalletFlowTest extends TestCase
             $table->decimal('balance_available', 12, 2)->default(0);
             $table->decimal('prepaid_balance', 12, 2)->default(0);
             $table->decimal('total_earnings', 12, 2)->default(0);
+            $table->timestamp('activated_at')->nullable();
             $table->timestamps();
         });
         Schema::create('wallet_recharges', function (Blueprint $table): void {
@@ -59,19 +60,43 @@ class PrepaidWalletFlowTest extends TestCase
         Schema::dropIfExists('driver_wallets');
         parent::tearDown();
     }
-    public function test_acceptance_is_rejected_when_prepaid_balance_cannot_cover_estimated_commission(): void
+    public function test_acceptance_is_rejected_before_first_recharge_when_balance_is_below_minimum(): void
     {
         $wallet = $this->wallets->ensureWallet($this->driver);
-        $wallet->update(['prepaid_balance' => 14.99]);
+        $wallet->update(['balance_available' => 19.99]);
         $this->expectException(HttpException::class);
         $this->wallets->assertCanAcceptRide($this->driver, 100, 15);
     }
-    public function test_acceptance_is_allowed_when_prepaid_balance_covers_estimated_commission(): void
+    public function test_acceptance_is_allowed_before_first_recharge_with_minimum_balance(): void
     {
         $wallet = $this->wallets->ensureWallet($this->driver);
-        $wallet->update(['prepaid_balance' => 15]);
+        $wallet->update(['balance_available' => 20]);
         $this->wallets->assertCanAcceptRide($this->driver, 100, 15);
         $this->assertTrue(true);
+    }
+
+    public function test_after_first_recharge_driver_can_operate_down_to_minus_twenty(): void
+    {
+        $wallet = $this->wallets->ensureWallet($this->driver);
+        $wallet->update(['balance_available' => -20, 'activated_at' => now()]);
+        $this->wallets->assertCanAcceptRide($this->driver, 100, 15);
+        $this->assertTrue(true);
+    }
+
+    public function test_after_first_recharge_acceptance_is_rejected_below_minus_twenty(): void
+    {
+        $wallet = $this->wallets->ensureWallet($this->driver);
+        $wallet->update(['balance_available' => -20.01, 'activated_at' => now()]);
+        $this->expectException(HttpException::class);
+        $this->wallets->assertCanAcceptRide($this->driver, 100, 15);
+    }
+
+    public function test_recharge_activates_the_wallet(): void
+    {
+        $this->wallets->creditPrepaidRecharge($this->driver->user_id, 20, 'recharge-act-1');
+        $wallet = $this->wallets->ensureWallet($this->driver)->fresh();
+        $this->assertNotNull($wallet->activated_at);
+        $this->assertSame(20.0, (float) $wallet->balance_available);
     }
 
     public function test_confirmed_recharge_credits_once_even_when_webhook_is_replayed(): void
@@ -87,7 +112,7 @@ class PrepaidWalletFlowTest extends TestCase
         );
         $service->confirm($recharge);
         $service->confirm($recharge->fresh());
-        $this->assertSame(20.0, (float) $this->wallets->ensureWallet($this->driver)->fresh()->prepaid_balance);
+        $this->assertSame(20.0, (float) $this->wallets->ensureWallet($this->driver)->fresh()->balance_available);
         $this->assertSame(1, $this->wallets->ensureWallet($this->driver)->transactions()->where('type', 'wallet_recharge')->count());
     }
 
@@ -137,7 +162,7 @@ class PrepaidWalletFlowTest extends TestCase
         // abortar nesse ponto (a corrida já foi paga pelo passageiro) — se abortasse,
         // a transação que marca a corrida como paga seria desfeita inteira.
         $wallet = $this->wallets->ensureWallet($this->driver);
-        $wallet->update(['prepaid_balance' => 5]);
+        $wallet->update(['balance_available' => 5]);
         $ride = new Ride([
             'id' => 'ride-test-insufficient-1',
             'driver_id' => $this->driver->user_id,
@@ -147,14 +172,14 @@ class PrepaidWalletFlowTest extends TestCase
 
         $this->wallets->debitCommissionForRide($ride);
 
-        $this->assertSame(-10.0, (float) $wallet->fresh()->prepaid_balance);
+        $this->assertSame(-10.0, (float) $wallet->fresh()->balance_available);
         $this->assertSame(1, $this->wallets->ensureWallet($this->driver)->transactions()->where('type', 'commission_debit')->count());
     }
 
     public function test_commission_debit_is_idempotent_for_the_same_ride(): void
     {
         $wallet = $this->wallets->ensureWallet($this->driver);
-        $wallet->update(['prepaid_balance' => 20]);
+        $wallet->update(['balance_available' => 20]);
         $ride = new Ride([
             'id' => 'ride-test-1',
             'driver_id' => $this->driver->user_id,
@@ -163,7 +188,7 @@ class PrepaidWalletFlowTest extends TestCase
         $ride->setRelation('driver', $this->driver);
         $this->wallets->debitCommissionForRide($ride);
         $this->wallets->debitCommissionForRide($ride);
-        $this->assertSame(5.0, (float) $wallet->fresh()->prepaid_balance);
+        $this->assertSame(5.0, (float) $wallet->fresh()->balance_available);
         $this->assertSame(1, $this->wallets->ensureWallet($this->driver)->transactions()->where('type', 'commission_debit')->count());
     }
 }

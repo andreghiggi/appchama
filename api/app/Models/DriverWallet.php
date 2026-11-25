@@ -20,6 +20,7 @@ class DriverWallet extends Model
         'balance_available',
         'prepaid_balance',
         'total_earnings',
+        'activated_at',
     ];
 
     protected function casts(): array
@@ -28,6 +29,7 @@ class DriverWallet extends Model
             'balance_available' => 'decimal:2',
             'prepaid_balance' => 'decimal:2',
             'total_earnings' => 'decimal:2',
+            'activated_at' => 'datetime',
         ];
     }
 
