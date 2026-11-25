@@ -49,6 +49,23 @@ try {
     $check('falha do fornecedor: aviso claro e nenhum codigo fica valendo', $erro instanceof \Symfony\Component\HttpKernel\Exception\HttpException && $erro->getStatusCode() === 503
         && str_contains($erro->getMessage(), 'Não foi possível enviar o SMS') && OtpCode::query()->where('phone', '51977776666')->count() === $codigoAntes, $erro?->getMessage());
 
+    // provider smsmais: Bearer, telefone com 55 so digitos, mensagem com o codigo
+    config(['services.sms.provider' => 'smsmais', 'services.sms.smsmais' => ['token' => 'tok-teste', 'url' => 'https://smsmais.com']]);
+    Http::swap(new \Illuminate\Http\Client\Factory); Http::fake(['smsmais.com/*' => Http::response(['sucesso' => true, 'id' => 1, 'status' => 'queued'], 200)]);
+    $svc->send('51955554444', 'vaide55');
+    $codigoSm = OtpCode::query()->where('tenant_id', $tenant->id)->where('phone', '51955554444')->latest()->value('code');
+    $envSm = null;
+    Http::assertSent(function ($req) use (&$envSm) { $envSm = $req; return true; });
+    $check('smsmais: POST /api/enviar_sms.php, Bearer, to=5551955554444 e codigo na mensagem', $envSm && str_ends_with($envSm->url(), '/api/enviar_sms.php')
+        && ($envSm->header('Authorization')[0] ?? '') === 'Bearer tok-teste' && ($envSm['to'] ?? '') === '5551955554444'
+        && str_contains((string) ($envSm['message'] ?? ''), (string) $codigoSm) && mb_strlen((string) $envSm['message']) <= 160, $envSm?->data());
+
+    Http::swap(new \Illuminate\Http\Client\Factory); Http::fake(['smsmais.com/*' => Http::response(['error' => 'unauthorized'], 401)]);
+    $erroSm = null;
+    try { $svc->send('51955553333', 'vaide55'); } catch (\Throwable $e) { $erroSm = $e; }
+    $check('smsmais recusou: aviso 503 e nenhum codigo fica valendo', $erroSm instanceof \Symfony\Component\HttpKernel\Exception\HttpException && $erroSm->getStatusCode() === 503
+        && OtpCode::query()->where('phone', '51955553333')->count() === 0);
+
     // configuracao incompleta
     config(['services.sms.twilio' => ['account_sid' => '', 'auth_token' => '', 'from' => '', 'messaging_service_sid' => '']]);
     $erro2 = null;
@@ -58,6 +75,6 @@ try {
     $check('execucao sem excecao', false, $e->getMessage());
 } finally {
     DB::rollBack();
-    foreach (['51988887777', '51977776666', '51966665555', '51900000001', ''] as $t) { RateLimiter::clear('tel:'.$t); }
+    foreach (['51988887777', '51977776666', '51966665555', '51955554444', '51955553333', '51900000001', ''] as $t) { RateLimiter::clear('tel:'.$t); }
 }
 echo "\nSMS: $ok ok, ".count($falhas)." falhas\n";
