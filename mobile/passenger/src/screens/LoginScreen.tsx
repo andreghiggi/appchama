@@ -2,19 +2,21 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { api } from '../../../shared/api';
+import { api, setToken } from '../../../shared/api';
 import { requestCurrentLocation } from '../../../shared/location';
 import { DEFAULT_CITY, DEFAULT_STATE, theme } from '../../../shared/theme';
 import { BrandFooter, BrandHeader } from '../../../shared/BrandHeader';
 import { useAuth } from '../context/AuthContext';
+import type { User } from '../../../shared/types';
 
 type Mode = 'register' | 'login';
-type Step = 'form' | 'code';
+type Step = 'form' | 'code' | 'newpassword';
 
 function onlyDigits(value: string, max?: number): string {
   const digits = value.replace(/\D/g, '');
@@ -37,6 +39,10 @@ export default function LoginScreen() {
   const [addressLng, setAddressLng] = useState<number | null>(null);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
+  // sessao ja confirmada por codigo, aguardando o passageiro criar a senha
+  const [pending, setPending] = useState<{ token: string; user: User; hasPassword: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +109,53 @@ export default function LoginScreen() {
       setError('Informe um telefone válido.');
       return false;
     }
+    return validatePassword();
+  };
+
+  const validatePassword = (): boolean => {
+    if (password.length < 6) {
+      setError('Crie uma senha com pelo menos 6 caracteres.');
+      return false;
+    }
+    if (password !== password2) {
+      setError('As senhas não conferem.');
+      return false;
+    }
     return true;
+  };
+
+  const enterWithPassword = async () => {
+    if (!validateForm()) return;
+    if (!password) {
+      setError('Informe sua senha.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+    try {
+      const res = await api.passengerLogin(phone.trim(), password);
+      await login(res.token, res.user);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Não foi possível entrar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveNewPassword = async () => {
+    if (!pending || !validatePassword()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setToken(pending.token);
+      await api.setPassword(password, password2);
+      await login(pending.token, pending.user);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Não foi possível salvar a senha');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const sendOtp = async () => {
@@ -159,7 +211,29 @@ export default function LoginScreen() {
             }
           : undefined,
       );
-      await login(result.token, result.user);
+      if (result.user.role !== 'passenger') {
+        setError('Este telefone está cadastrado como motorista. Para pedir corridas, use outro telefone.');
+        return;
+      }
+      if (mode === 'register') {
+        setToken(result.token);
+        try {
+          await api.setPassword(password, password2);
+        } catch {
+          // a conta ja foi criada; se a senha nao salvar agora, pede de novo em vez de travar
+          setPending({ token: result.token, user: result.user, hasPassword: false });
+          setStep('newpassword');
+          setInfo('Conta criada. Salve sua senha para concluir.');
+          return;
+        }
+        await login(result.token, result.user);
+        return;
+      }
+      setPassword('');
+      setPassword2('');
+      setPending({ token: result.token, user: result.user, hasPassword: Boolean(result.has_password) });
+      setStep('newpassword');
+      setInfo(null);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Código inválido');
     } finally {
@@ -173,10 +247,13 @@ export default function LoginScreen() {
     setError(null);
     setInfo(null);
     setCode('');
+    setPassword('');
+    setPassword2('');
+    setPending(null);
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <BrandHeader />
       <Text style={styles.subtitle}>
         {mode === 'register' ? 'Crie sua conta para pedir corridas' : 'Entre na sua conta'}
@@ -288,13 +365,65 @@ export default function LoginScreen() {
             keyboardType="phone-pad"
           />
 
-          <Pressable style={styles.button} onPress={sendOtp} disabled={loading}>
+          <TextInput
+            style={styles.input}
+            placeholder={mode === 'register' ? 'Crie uma senha (mínimo 6)' : 'Senha'}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+          />
+          {mode === 'register' ? (
+            <TextInput
+              style={styles.input}
+              placeholder="Repita a senha"
+              value={password2}
+              onChangeText={setPassword2}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+          ) : null}
+
+          <Pressable style={styles.button} onPress={mode === 'register' ? sendOtp : enterWithPassword} disabled={loading}>
             {loading ? (
               <ActivityIndicator color={theme.ink} />
             ) : (
-              <Text style={styles.buttonText}>Enviar código</Text>
+              <Text style={styles.buttonText}>{mode === 'register' ? 'Enviar código' : 'Entrar'}</Text>
             )}
           </Pressable>
+          {mode === 'login' ? (
+            <Pressable style={styles.linkBtn} onPress={sendOtp} disabled={loading}>
+              <Text style={styles.linkBtnText}>Primeiro acesso ou esqueci a senha: entrar com código por SMS</Text>
+            </Pressable>
+          ) : null}
+        </>
+      ) : step === 'newpassword' ? (
+        <>
+          <Text style={styles.codeHint}>Crie sua senha. Nas próximas vezes você entra com telefone e senha.</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nova senha (mínimo 6)"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Repita a senha"
+            value={password2}
+            onChangeText={setPassword2}
+            secureTextEntry
+            autoCapitalize="none"
+          />
+          <Pressable style={styles.button} onPress={saveNewPassword} disabled={loading}>
+            {loading ? <ActivityIndicator color={theme.ink} /> : <Text style={styles.buttonText}>Salvar senha e entrar</Text>}
+          </Pressable>
+          {pending?.hasPassword ? (
+            <Pressable style={styles.linkBtn} onPress={() => login(pending.token, pending.user)}>
+              <Text style={styles.linkBtnText}>Manter a senha atual</Text>
+            </Pressable>
+          ) : null}
         </>
       ) : (
         <>
@@ -325,12 +454,13 @@ export default function LoginScreen() {
       {info ? <Text style={styles.info}>{info}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <BrandFooter />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.bg, padding: 24, justifyContent: 'center' },
+  scroll: { flex: 1, backgroundColor: theme.bg },
+  container: { flexGrow: 1, padding: 24, justifyContent: 'center' },
   title: { fontSize: 28, fontWeight: '700', color: theme.ink, marginBottom: 4 },
   subtitle: { fontSize: 14, color: theme.textSecondary, marginBottom: 20 },
   modeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
@@ -357,7 +487,7 @@ const styles = StyleSheet.create({
   addressInput: { minHeight: 56, textAlignVertical: 'top' },
   row: { flexDirection: 'row', gap: 8 },
   flex: { flex: 1 },
-  cep: { width: 110 },
+  cep: { width: 140 },
   uf: { width: 64 },
   secondaryBtn: {
     borderRadius: 12,
@@ -379,7 +509,7 @@ const styles = StyleSheet.create({
   buttonText: { color: theme.ink, fontWeight: '700', fontSize: 16 },
   codeHint: { fontSize: 13, color: theme.textSecondary, marginBottom: 10 },
   linkBtn: { marginTop: 12, alignItems: 'center' },
-  linkBtnText: { color: theme.ink, fontWeight: '600' },
+  linkBtnText: { color: theme.ink, fontWeight: '600', textAlign: 'center' },
   info: { color: '#0B6E62', fontSize: 13, marginTop: 12, textAlign: 'center' },
   error: { color: theme.danger, fontSize: 13, marginTop: 12, textAlign: 'center' },
 });

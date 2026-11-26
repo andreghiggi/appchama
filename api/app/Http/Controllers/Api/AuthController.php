@@ -6,8 +6,11 @@ use App\Domains\Auth\Services\OtpService;
 use App\Domains\Drivers\Services\DriverRegistrationCodeService;
 use App\Domains\Drivers\Services\DriverSelfRegistrationService;
 use App\Http\Controllers\Controller;
+use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 
 class AuthController extends Controller
@@ -96,7 +99,47 @@ class AuthController extends Controller
         return response()->json([
             'token' => $token,
             'user' => $user->load('driver'),
+            'has_password' => filled($user->password),
         ]);
+    }
+
+    /** Passageiro entra com telefone e a senha que ele mesmo criou (sem gastar SMS). */
+    public function passengerLogin(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'phone' => 'required|string|max:20',
+            'password' => 'required|string|max:100',
+            'tenant_slug' => 'required|string',
+        ]);
+
+        $tenant = Tenant::query()->where('slug', $data['tenant_slug'])->firstOrFail();
+        $user = User::query()->where('tenant_id', $tenant->id)->where('phone', $data['phone'])->first();
+
+        abort_if($user && $user->isDriver(), 422, 'Este telefone está cadastrado como motorista. Para pedir corridas, use outro telefone.');
+        abort_if($user && $user->isPassenger() && blank($user->password), 422, 'Você ainda não criou uma senha. Toque em "Entrar com código por SMS".');
+        abort_unless($user && $user->isPassenger() && Hash::check($data['password'], (string) $user->password), 422, 'Telefone ou senha incorretos.');
+        abort_if($user->status === 'blocked', 403, 'Conta bloqueada. Fale com o suporte.');
+
+        return response()->json([
+            'token' => $user->createToken('mobile')->plainTextToken,
+            'user' => $user,
+            'has_password' => true,
+        ]);
+    }
+
+    /** Cria ou troca a senha do passageiro logado (depois de confirmar o telefone por codigo). */
+    public function setPassword(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isPassenger(), 403, 'Somente a conta de passageiro define senha por aqui.');
+
+        $data = $request->validate(
+            ['password' => ['required', 'confirmed', Password::min(6)]],
+            ['password.min' => 'A senha precisa ter pelo menos 6 caracteres.', 'password.confirmed' => 'As senhas não conferem.'],
+        );
+        $user->update(['password' => $data['password']]);
+
+        return response()->json(['message' => 'Senha salva.']);
     }
 
     public function driverRegister(Request $request): JsonResponse

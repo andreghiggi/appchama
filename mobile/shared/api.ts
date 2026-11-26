@@ -31,7 +31,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       errors?: Record<string, string[]>;
     };
     const firstError = body.errors ? Object.values(body.errors).flat()[0] : undefined;
-    throw new Error(firstError ?? body.message ?? `Erro ${response.status}`);
+    throw new Error(firstError || body.message || `Erro ${response.status}`);
   }
 
   return response.json();
@@ -61,7 +61,7 @@ export const api = {
       home_lng?: number;
     },
   ) =>
-    request<{ token: string; user: User }>('/auth/otp/verify', {
+    request<{ token: string; user: User; has_password?: boolean }>('/auth/otp/verify', {
       method: 'POST',
       body: JSON.stringify({
         phone,
@@ -69,6 +69,18 @@ export const api = {
         tenant_slug: TENANT_SLUG,
         ...options,
       }),
+    }),
+
+  passengerLogin: (phone: string, password: string) =>
+    request<{ token: string; user: User }>('/auth/passenger/login', {
+      method: 'POST',
+      body: JSON.stringify({ phone, password, tenant_slug: TENANT_SLUG }),
+    }),
+
+  setPassword: (password: string, confirmation: string) =>
+    request<{ message: string }>('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify({ password, password_confirmation: confirmation }),
     }),
 
   updateProfile: (payload: {
