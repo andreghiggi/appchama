@@ -20,6 +20,7 @@ Route::prefix('v1')->middleware(['tenant'])->group(function () {
     Route::get('/app-version', [\App\Http\Controllers\Api\AppVersionController::class, 'show']);
     Route::post('/auth/otp/send', [AuthController::class, 'sendOtp'])->middleware('throttle:otp-send');
     Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp'])->middleware('throttle:otp-verify');
+    Route::post('/auth/passenger/login', [AuthController::class, 'passengerLogin'])->middleware('throttle:otp-verify');
     Route::post('/auth/driver/login', [AuthController::class, 'driverLogin']);
     Route::post('/auth/driver/register', [AuthController::class, 'driverRegister']);
     Route::get('/cities', [CityController::class, 'index']);
@@ -33,6 +34,7 @@ Route::prefix('v1')->middleware(['tenant'])->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', fn (Request $request) => $request->user()->load('driver.vehicles'));
         Route::put('/profile', [ProfileController::class, 'update']);
+        Route::put('/auth/password', [AuthController::class, 'setPassword'])->middleware('throttle:10,1');
 
         Route::get('/rides', [RideController::class, 'index']);
         Route::get('/rides/estimate', [RideController::class, 'estimate']);

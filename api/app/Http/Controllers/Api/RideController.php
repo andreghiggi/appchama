@@ -40,7 +40,7 @@ class RideController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()->isPassenger(), 403);
+        abort_unless($request->user()->isPassenger(), 403, 'Este telefone está cadastrado como motorista. Para pedir corridas, entre com uma conta de passageiro (outro telefone).');
 
         $data = $request->validate([
             'city_id' => 'required|uuid',
@@ -76,7 +76,7 @@ class RideController extends Controller
 
     public function estimate(Request $request): JsonResponse
     {
-        abort_unless($request->user()->isPassenger(), 403);
+        abort_unless($request->user()->isPassenger(), 403, 'Este telefone está cadastrado como motorista. Para pedir corridas, entre com uma conta de passageiro (outro telefone).');
 
         $data = $request->validate([
             'city_id' => 'required|uuid',
