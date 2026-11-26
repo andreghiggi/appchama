@@ -25,11 +25,11 @@ class EnsureTenantScope
                 abort(403, 'Este usuário não pertence a esta marca.');
             }
 
-            if ($pedidas !== []) {
+            // o cabecalho e ignorado aqui (o endereco manda); ja o tenant_slug do corpo e usado nos cadastros
+            $doCorpo = $request->input('tenant_slug');
+            if (is_string($doCorpo) && $doCorpo !== '') {
                 $doEndereco = Tenant::query()->whereKey(app('currentTenantId'))->value('slug');
-                foreach ($pedidas as $slug) {
-                    abort_if($slug !== $doEndereco, 422, 'Este aplicativo não pertence a este endereço.');
-                }
+                abort_if($doCorpo !== $doEndereco, 422, 'Este aplicativo não pertence a este endereço.');
             }
 
             return $next($request);

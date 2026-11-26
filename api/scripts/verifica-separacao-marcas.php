@@ -27,7 +27,8 @@ try {
     };
     $check('vaide55 no endereco do vaide55', $chama('api.vaide55.com.br', 'vaide55', 'vaide55') === 200);
     $check('outra marca no endereco do vaide55 e recusada', $chama('api.vaide55.com.br', 'chama-demo') === 422);
-    $check('cabecalho de outra marca e recusado', $chama('api.vaide55.com.br', 'vaide55', 'chama-demo') === 422);
+    $check('cabecalho de outra marca e ignorado: vale a marca do endereco', $chama('api.vaide55.com.br', 'vaide55', 'chama-demo') === 200
+        && DB::table('otp_codes')->where('phone', '51911110009')->where('tenant_id', $vai->id)->exists());
     $check('appchama no endereco da plataforma', $chama('apichama.agilizeerp.com.br', 'chama-demo', 'chama-demo') === 200);
     $check('vaide55 pelo endereco do appchama e recusado', $chama('apichama.agilizeerp.com.br', 'vaide55') === 422);
     $check('nada do teste caiu na outra marca', ! DB::table('otp_codes')->where('phone', '51911110009')->whereNotIn('tenant_id', [$vai->id, $demo->id])->exists());
