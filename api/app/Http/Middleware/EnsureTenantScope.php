@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Tenant;
+use App\Models\TenantDomain;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,6 +12,12 @@ class EnsureTenantScope
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // Cada marca so aceita os proprios cadastros: a marca pedida pelo app tem de ser a do endereco.
+        $pedidas = array_values(array_filter(
+            [$request->header('X-Tenant-Slug'), $request->input('tenant_slug')],
+            fn ($s) => is_string($s) && $s !== '',
+        ));
+
         // Endereço da marca (api.<marca>): a marca vem do endereço e nada a sobrescreve.
         if (app()->bound('tenantFromHost')) {
             $user = $request->user();
@@ -18,7 +25,21 @@ class EnsureTenantScope
                 abort(403, 'Este usuário não pertence a esta marca.');
             }
 
+            if ($pedidas !== []) {
+                $doEndereco = Tenant::query()->whereKey(app('currentTenantId'))->value('slug');
+                foreach ($pedidas as $slug) {
+                    abort_if($slug !== $doEndereco, 422, 'Este aplicativo não pertence a este endereço.');
+                }
+            }
+
             return $next($request);
+        }
+
+        // Endereco da plataforma: nao cadastra nem entra em marca que tem endereco proprio.
+        foreach ($pedidas as $slug) {
+            $temEnderecoProprio = TenantDomain::query()->where('type', 'api')
+                ->whereIn('tenant_id', Tenant::query()->where('slug', $slug)->select('id'))->exists();
+            abort_if($temEnderecoProprio, 422, 'Este aplicativo não pertence a este endereço.');
         }
 
         $tenantSlug = $request->header('X-Tenant-Slug')
