@@ -16,19 +16,29 @@ class OtpService
     {
         $tenant = Tenant::query()->where('slug', $tenantSlug)->firstOrFail();
 
+        // Novo pedido com um codigo ainda valido repete o MESMO codigo: se dois SMS chegarem juntos, qualquer um serve.
+        // O prazo nao e renovado; perto de vencer (menos de 2 minutos) sai um codigo novo.
+        $anterior = OtpCode::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('phone', $phone)
+            ->where('used', false)
+            ->where('expires_at', '>', now()->addMinutes(2))
+            ->latest()
+            ->first();
+
         OtpCode::query()
             ->where('tenant_id', $tenant->id)
             ->where('phone', $phone)
             ->delete();
 
         $fixo = $this->testCodeFor($phone);
-        $code = $fixo ?? str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $code = $fixo ?? $anterior?->code ?? str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
-        OtpCode::query()->create([
+        $novo = OtpCode::query()->create([
             'tenant_id' => $tenant->id,
             'phone' => $phone,
             'code' => $code,
-            'expires_at' => now()->addMinutes(10),
+            'expires_at' => $fixo === null && $anterior ? $anterior->expires_at : now()->addMinutes(10),
         ]);
 
         $sms = app(SmsGateway::class);
@@ -38,8 +48,10 @@ class OtpService
             try {
                 $sms->send($phone, ($tenant->name ?: 'Vai de 55').": seu codigo e {$code}. Nao compartilhe com ninguem.");
             } catch (\Throwable $e) {
-                // sem o SMS o codigo nao serve para nada: apaga e avisa a pessoa de forma simples
-                OtpCode::query()->where('tenant_id', $tenant->id)->where('phone', $phone)->delete();
+                // sem o SMS o codigo novo nao serve para nada: apaga (um codigo que ja tinha sido enviado continua valendo)
+                if (! $anterior) {
+                    $novo->delete();
+                }
                 Log::error('sms.falha_envio', ['telefone' => '****'.substr(preg_replace('/\D/', '', $phone), -4), 'erro' => $e->getMessage()]);
                 abort(503, 'Não foi possível enviar o SMS agora. Tente de novo em instantes.');
             }
@@ -90,18 +102,22 @@ class OtpService
             ->value('code');
     }
 
-    public function phoneExists(string $phone, string $tenantSlug): bool
+    /** O mesmo telefone pode ter uma conta de passageiro e outra de motorista: a consulta e sempre por perfil. */
+    public function phoneExists(string $phone, string $tenantSlug, string $role = 'passenger'): bool
     {
         $tenant = Tenant::query()->where('slug', $tenantSlug)->firstOrFail();
 
         return User::query()
             ->where('tenant_id', $tenant->id)
             ->where('phone', $phone)
+            ->where('role', $role)
             ->exists();
     }
 
-    public function verify(string $phone, string $code, string $tenantSlug, ?array $registerData = null): User
+    public function verify(string $phone, string $code, string $tenantSlug, ?array $registerData = null, string $role = 'passenger'): User
     {
+        $role = $registerData['role'] ?? $role;
+
         $tenant = Tenant::query()->where('slug', $tenantSlug)->firstOrFail();
 
         $otp = OtpCode::query()
@@ -119,10 +135,10 @@ class OtpService
         $user = User::query()
             ->where('tenant_id', $tenant->id)
             ->where('phone', $phone)
+            ->where('role', $role)
             ->first();
 
         if (! $user && $registerData) {
-            $role = $registerData['role'] ?? 'passenger';
 
             $user = User::query()->create([
                 'tenant_id' => $tenant->id,
@@ -146,7 +162,7 @@ class OtpService
             }
         }
 
-        if ($user && $registerData && ($registerData['role'] ?? 'passenger') === 'passenger') {
+        if ($user && $registerData && $role === 'passenger') {
             $updates = [];
 
             if (filled($registerData['name'] ?? null)) {

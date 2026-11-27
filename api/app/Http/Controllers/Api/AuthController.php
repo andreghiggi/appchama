@@ -26,15 +26,23 @@ class AuthController extends Controller
         $data = $request->validate([
             'phone' => 'required|string|max:20',
             'tenant_slug' => 'required|string',
+            'intent' => 'nullable|in:register,login',
         ]);
 
-        $this->otpService->send($data['phone'], $data['tenant_slug']);
+        $existe = $this->otpService->phoneExists($data['phone'], $data['tenant_slug']);
+
+        // O app vai recusar (cadastro de quem ja tem conta, ou entrada de quem nao tem): nao gasta SMS.
+        $intencao = $data['intent'] ?? null;
+        $enviar = ! (($intencao === 'register' && $existe) || ($intencao === 'login' && ! $existe));
+        if ($enviar) {
+            $this->otpService->send($data['phone'], $data['tenant_slug']);
+        }
 
         $payload = [
-            'message' => 'OTP enviado.',
-            'user_exists' => $this->otpService->phoneExists($data['phone'], $data['tenant_slug']),
+            'message' => $enviar ? 'OTP enviado.' : 'Código não enviado.',
+            'user_exists' => $existe,
         ];
-        if (config('services.sms.expose_debug_code', false)) {
+        if ($enviar && config('services.sms.expose_debug_code', false)) {
             $payload['debug_code'] = $this->otpService->peekLatestCode($data['phone'], $data['tenant_slug']);
         }
 
@@ -92,6 +100,7 @@ class AuthController extends Controller
             $data['code'],
             $data['tenant_slug'],
             $registerData,
+            $data['role'] ?? 'passenger',
         );
 
         $token = $user->createToken('mobile')->plainTextToken;
@@ -113,9 +122,10 @@ class AuthController extends Controller
         ]);
 
         $tenant = Tenant::query()->where('slug', $data['tenant_slug'])->firstOrFail();
-        $user = User::query()->where('tenant_id', $tenant->id)->where('phone', $data['phone'])->first();
+        $contas = User::query()->where('tenant_id', $tenant->id)->where('phone', $data['phone'])->get();
+        $user = $contas->firstWhere('role', 'passenger');
 
-        abort_if($user && $user->isDriver(), 422, 'Este telefone está cadastrado como motorista. Para pedir corridas, use outro telefone.');
+        abort_if(! $user && $contas->contains('role', 'driver'), 422, 'Este telefone ainda não tem conta de passageiro. Toque em "Criar conta".');
         abort_if($user && $user->isPassenger() && blank($user->password), 422, 'Você ainda não criou uma senha. Toque em "Entrar com código por SMS".');
         abort_unless($user && $user->isPassenger() && Hash::check($data['password'], (string) $user->password), 422, 'Telefone ou senha incorretos.');
         abort_if($user->status === 'blocked', 403, 'Conta bloqueada. Fale com o suporte.');

@@ -165,7 +165,7 @@ export default function LoginScreen() {
     setError(null);
     setInfo(null);
     try {
-      const res = await api.sendOtp(phone.trim());
+      const res = await api.sendOtp(phone.trim(), mode);
       if (mode === 'register' && res.user_exists) {
         setError('Este telefone já está cadastrado. Use "Já tenho conta" para entrar.');
         return;
@@ -211,10 +211,6 @@ export default function LoginScreen() {
             }
           : undefined,
       );
-      if (result.user.role !== 'passenger') {
-        setError('Este telefone está cadastrado como motorista. Para pedir corridas, use outro telefone.');
-        return;
-      }
       if (mode === 'register') {
         setToken(result.token);
         try {
