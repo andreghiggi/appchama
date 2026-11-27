@@ -11,6 +11,7 @@ use App\Models\Vehicle;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class DriverAdminService
 {
@@ -25,6 +26,7 @@ class DriverAdminService
                 ->withoutGlobalScope(TenantScope::class)
                 ->find($data['city_id']);
             $tenantId = $city?->tenant_id ?? config('app.default_tenant_id');
+            $this->recusarTelefoneDePassageiro($tenantId, $data['user_phone']);
 
             $backgroundStatus = $data['background_check_status'] ?? 'approved';
             $subscriptionStatus = $data['subscription_status'] ?? 'active';
@@ -82,10 +84,23 @@ class DriverAdminService
         });
     }
 
+    private function recusarTelefoneDePassageiro(string $tenantId, string $phone): void
+    {
+        if (User::telefoneDePassageiro($tenantId, $phone)) {
+            throw ValidationException::withMessages(['data.user_phone' => User::AVISO_TELEFONE_DE_PASSAGEIRO]);
+        }
+    }
+
     public function updateFromAdmin(Driver $driver, array $data): Driver
     {
         $backgroundStatus = $data['background_check_status'] ?? $driver->background_check_status;
         $subscriptionStatus = $data['subscription_status'] ?? $driver->subscription_status;
+
+        // So confere quando o telefone muda: o motorista que tambem e passageiro continua editavel.
+        $novoTelefone = $data['user_phone'] ?? null;
+        if ($driver->user && filled($novoTelefone) && $novoTelefone !== $driver->user->phone) {
+            $this->recusarTelefoneDePassageiro($driver->user->tenant_id, $novoTelefone);
+        }
 
         $driver->user?->update([
             'name' => $data['user_name'] ?? $driver->user?->name,

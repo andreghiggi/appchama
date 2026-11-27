@@ -139,6 +139,8 @@ class OtpService
             ->first();
 
         if (! $user && $registerData) {
+            abort_if($role === 'driver' && User::telefoneDePassageiro($tenant->id, $phone), 422, User::AVISO_TELEFONE_DE_PASSAGEIRO);
+
 
             $user = User::query()->create([
                 'tenant_id' => $tenant->id,

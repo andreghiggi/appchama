@@ -19,10 +19,11 @@ class DriverSelfRegistrationService
     {
         $tenant = Tenant::query()->where('slug', $tenantSlug)->firstOrFail();
 
-        // So impede um segundo cadastro de MOTORISTA; a conta de passageiro com o mesmo telefone e independente.
         if (User::query()->where('tenant_id', $tenant->id)->where('phone', $data['phone'])->where('role', 'driver')->exists()) {
             abort(422, 'Já existe um cadastro de motorista com este telefone. Entre com sua senha.');
         }
+
+        abort_if(User::telefoneDePassageiro($tenant->id, $data['phone']), 422, User::AVISO_TELEFONE_DE_PASSAGEIRO);
 
         $city = City::query()
             ->withoutGlobalScope(TenantScope::class)
