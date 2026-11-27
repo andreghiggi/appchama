@@ -74,8 +74,10 @@ try {
     [$s, $j] = $pede('51911110003', ['intent' => 'login']);
     $check('quem nao tem conta nao recebe SMS na entrada', $s === 200 && $j['user_exists'] === false && $codigo('51911110003') === '');
 
-    $cidade = \App\Models\City::withoutGlobalScopes()->where('tenant_id', $vai->id)->get()->first(fn ($c) => $c->acceptsDriverSignup());
-    if ($cidade) {
+    $cidade = \App\Models\City::query()->withoutGlobalScopes()->create(['tenant_id' => $vai->id, 'name' => 'Cidade do Teste', 'state' => 'RS', 'active' => true,
+        'rides_enabled' => true, 'driver_signup_enabled' => true, 'departure_address' => 'Centro', 'departure_lat' => -29.2356, 'departure_lng' => -51.8711,
+        'base_fare' => 12, 'price_per_km' => 0.9, 'price_per_min' => 0.5, 'min_fare' => 8]);
+
         \Illuminate\Support\Facades\Storage::fake('local');
         $dados = ['name' => 'Passageiro Motorista', 'phone' => '51911110001', 'password' => 'motor123', 'city_id' => $cidade->id,
             'cnh_number' => '12345678900', 'cnh_expiry' => now()->addYear()->toDateString(), 'vehicle_plate' => 'ABC1D23'];
@@ -90,9 +92,6 @@ try {
         $repetido = false;
         try { $reg(); } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) { $repetido = $e->getStatusCode() === 422; }
         $check('segundo cadastro de motorista com o mesmo telefone e recusado', $repetido);
-    } else {
-        $check('existe cidade aberta para motorista no desenvolvimento', false);
-    }
 } finally {
     DB::rollBack();
     $limpa();
