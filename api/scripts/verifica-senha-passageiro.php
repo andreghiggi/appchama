@@ -79,19 +79,25 @@ try {
         'base_fare' => 12, 'price_per_km' => 0.9, 'price_per_min' => 0.5, 'min_fare' => 8]);
 
         \Illuminate\Support\Facades\Storage::fake('local');
-        $dados = ['name' => 'Passageiro Motorista', 'phone' => '51911110001', 'password' => 'motor123', 'city_id' => $cidade->id,
+        $dados = fn (string $tel) => ['name' => 'Novo Motorista', 'phone' => $tel, 'password' => 'motor123', 'city_id' => $cidade->id,
             'cnh_number' => '12345678900', 'cnh_expiry' => now()->addYear()->toDateString(), 'vehicle_plate' => 'ABC1D23'];
-        $reg = fn () => app(\App\Domains\Drivers\Services\DriverSelfRegistrationService::class)
-            ->register($dados, \Illuminate\Http\UploadedFile::fake()->create('cnh.pdf', 10, 'application/pdf'), 'vaide55');
-        $novo = $reg();
-        $check('telefone de passageiro pode se cadastrar como motorista', $novo->role === 'driver' && $novo->id !== $p->id);
-        [$s, $j] = $chama('POST', '/api/v1/auth/driver/login', ['phone' => '51911110001', 'password' => 'motor123', 'tenant_slug' => 'vaide55']);
-        $check('entra no app do motorista com a senha de motorista', $s === 200 && ($j['user']['role'] ?? '') === 'driver');
-        [$s] = $entra('51911110001', 'segredo1');
-        $check('senha de passageiro segue valendo', $s === 200);
-        $repetido = false;
-        try { $reg(); } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) { $repetido = $e->getStatusCode() === 422; }
-        $check('segundo cadastro de motorista com o mesmo telefone e recusado', $repetido);
+        $reg = fn (string $tel) => app(\App\Domains\Drivers\Services\DriverSelfRegistrationService::class)
+            ->register($dados($tel), \Illuminate\Http\UploadedFile::fake()->create('cnh.pdf', 10, 'application/pdf'), 'vaide55');
+        $recusa = function (callable $f): string {
+            try { $f(); return ''; } catch (\Throwable $e) { return $e->getMessage(); }
+        };
+
+        $check('telefone de passageiro NAO pode se cadastrar como motorista (app)', str_contains($recusa(fn () => $reg('51911110001')), 'passageiro'));
+        $check('nem pelo painel', str_contains($recusa(fn () => app(\App\Domains\Drivers\Services\DriverAdminService::class)
+            ->createFromAdmin(['city_id' => $cidade->id, 'user_name' => 'Pelo Painel', 'user_phone' => '51911110001'])), 'passageiro'));
+        $novo = $reg('51911110003');
+        $check('telefone novo se cadastra como motorista', $novo->role === 'driver');
+        [$s, $j] = $chama('POST', '/api/v1/auth/driver/login', ['phone' => '51911110003', 'password' => 'motor123', 'tenant_slug' => 'vaide55']);
+        $check('entra no app do motorista', $s === 200 && ($j['user']['role'] ?? '') === 'driver');
+        $check('segundo cadastro de motorista com o mesmo telefone e recusado', str_contains($recusa(fn () => $reg('51911110003')), 'Já existe'));
+        [$s, $j] = $pede('51911110003', ['intent' => 'register']);
+        $check('esse motorista pode se cadastrar como passageiro', $s === 200 && $j['user_exists'] === false);
+
 } finally {
     DB::rollBack();
     $limpa();

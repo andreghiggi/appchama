@@ -55,6 +55,14 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
+    public const AVISO_TELEFONE_DE_PASSAGEIRO = 'Este telefone já é de uma conta de passageiro e não pode ser usado em um cadastro de motorista.';
+
+    /** Regra do telefone: motorista pode tambem ser passageiro, mas quem ja e passageiro nao vira motorista com o mesmo numero. */
+    public static function telefoneDePassageiro(string $tenantId, string $phone): bool
+    {
+        return static::query()->where('tenant_id', $tenantId)->where('phone', $phone)->where('role', 'passenger')->exists();
+    }
+
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class);
