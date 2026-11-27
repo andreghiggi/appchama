@@ -38,10 +38,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  sendOtp: (phone: string) =>
+  sendOtp: (phone: string, intent?: 'register' | 'login') =>
     request<{ message: string; debug_code?: string; user_exists?: boolean }>('/auth/otp/send', {
       method: 'POST',
-      body: JSON.stringify({ phone, tenant_slug: TENANT_SLUG }),
+      body: JSON.stringify({ phone, tenant_slug: TENANT_SLUG, intent }),
     }),
 
   verifyOtp: (

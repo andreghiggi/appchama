@@ -19,8 +19,9 @@ class DriverSelfRegistrationService
     {
         $tenant = Tenant::query()->where('slug', $tenantSlug)->firstOrFail();
 
-        if (User::query()->where('tenant_id', $tenant->id)->where('phone', $data['phone'])->exists()) {
-            abort(422, 'Telefone já cadastrado.');
+        // So impede um segundo cadastro de MOTORISTA; a conta de passageiro com o mesmo telefone e independente.
+        if (User::query()->where('tenant_id', $tenant->id)->where('phone', $data['phone'])->where('role', 'driver')->exists()) {
+            abort(422, 'Já existe um cadastro de motorista com este telefone. Entre com sua senha.');
         }
 
         $city = City::query()
